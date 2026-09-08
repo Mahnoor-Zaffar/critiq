@@ -1,0 +1,32 @@
+# Env / secrets
+.env
+*.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+dist/
+build/
+
+# uv
+.uv-cache/
+
+# Tooling
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+
+# Docker
+*.log
