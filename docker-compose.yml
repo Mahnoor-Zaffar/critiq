@@ -1,0 +1,45 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: critiq
+      POSTGRES_PASSWORD: critiq
+      POSTGRES_DB: critiq
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  api:
+    build: .
+    command: uv run critiq-api
+    env_file:
+      - .env
+    environment:
+      CRITIQ_DATABASE_URL: postgresql+asyncpg://critiq:critiq@postgres:5432/critiq
+      CRITIQ_REDIS_URL: redis://redis:6379/0
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+      - redis
+
+  worker:
+    build: .
+    command: uv run arq src.critiq.apps.worker.worker.WorkerSettings
+    env_file:
+      - .env
+    environment:
+      CRITIQ_DATABASE_URL: postgresql+asyncpg://critiq:critiq@postgres:5432/critiq
+      CRITIQ_REDIS_URL: redis://redis:6379/0
+    depends_on:
+      - postgres
+      - redis
+
+volumes:
+  pgdata:

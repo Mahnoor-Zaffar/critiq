@@ -8,8 +8,10 @@ change, understands the surrounding system, finds what matters, and explains why
 
 ## Status
 
-Phase 1 (design/docs) is complete. See the specs below. Phase 2 (implementation)
-is not started.
+Phase 1 (docs) and Phase 2 (full GitHub App pipeline scaffold) are complete.
+The full architecture is implemented: GitHub App auth + webhooks, diff parsing,
+repo context graph, static + LLM review pipeline, quality gate, and GitHub
+review posting.
 
 ## Docs
 
@@ -30,6 +32,45 @@ All product and architecture decisions live in [`docs/specs/`](docs/specs/):
 
 Python 3.12+ · FastAPI · PostgreSQL · Redis + Arq · GitHub App · Tree-sitter ·
 OpenRouter (provider-agnostic).
+
+## Getting started
+
+### Setup
+
+1. Create a GitHub App and add credentials + OpenRouter key to `.env`
+   (see `.env.example` and [`docs/specs/github-app-setup.md`](docs/specs/github-app-setup.md)).
+2. Copy `.critiq.yml.sample` to `.critiq.yml` (in a target repo) to configure
+   review behavior.
+
+### Run locally
+
+```bash
+# Install deps (uv)
+uv sync
+
+# Start Postgres + Redis
+docker compose up -d postgres redis
+
+# Create schema (dev bootstrap; use Alembic migrations for prod)
+uv run critiq-init-db
+
+# Run the API
+uv run critiq-api
+
+# Run the Arq worker (in another terminal)
+uv run arq src.critiq.apps.worker.worker.WorkerSettings
+```
+
+Expose the API with a tunnel (e.g. `ngrok http 8000`) and point the GitHub App
+webhook URL at `https://<tunnel>/webhooks/github`.
+
+### Tests
+
+```bash
+uv run pytest -q
+uv run ruff check src tests
+uv run mypy src
+```
 
 ## Conventions
 

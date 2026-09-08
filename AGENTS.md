@@ -39,4 +39,26 @@ spec before changing behavior. Do not duplicate decisions in comments.
 
 ## Status
 
-Phase 1: documentation/specs complete. Implementation (Phase 2) not started.
+Phase 1 (docs) and Phase 2 (GitHub App pipeline scaffold) are complete.
+Phase 3 (repository intelligence + evaluation harness) is next.
+
+## Project layout
+
+- `src/critiq/apps/api` — FastAPI app (webhook, health, runs, reviews)
+- `src/critiq/apps/worker` — Arq worker + review task
+- `src/critiq/core` — config, policy, findings, scoring
+- `src/critiq/analysis` — diff, AST (tree-sitter), graph, context, static
+- `src/critiq/ai` — LLM providers, reviewers, synthesizer
+- `src/critiq/integrations/github` — auth, client, webhook verify
+- `src/critiq/infrastructure/postgres` — SQLAlchemy models, session, init-db
+- `src/critiq/pipeline.py` — run_review orchestrator
+- `migrations/` — Alembic
+- `tests/` — unit + integration
+
+## Commands
+
+- `uv sync` — install
+- `uv run critiq-api` — run FastAPI app (port 8000)
+- `uv run arq src.critiq.apps.worker.worker.WorkerSettings` — run worker
+- `uv run critiq-init-db` — dev schema bootstrap
+- `uv run pytest -q` / `uv run ruff check src tests` / `uv run mypy src`

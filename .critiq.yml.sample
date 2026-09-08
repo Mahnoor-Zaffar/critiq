@@ -1,0 +1,28 @@
+# Critiq review policy. Place at the repo root to configure review behavior.
+review:
+  mode: automatic            # automatic | approval | advisory
+
+  severity_threshold: medium # critical | high | medium
+
+  confidence_threshold: 0.85 # gate for posting to GitHub
+
+  max_comments: 10           # cap on posted line comments
+
+  categories:
+    correctness: true
+    security: true
+    architecture: true
+    reliability: true
+    performance: true
+    testing: true
+
+  style:
+    naming: false
+    formatting: false
+
+  model_routing:
+    cheap: openrouter/auto
+    strong: openrouter/auto
+
+  languages:
+    - python
