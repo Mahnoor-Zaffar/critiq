@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 
 from arq import create_pool
 from sqlalchemy import select
@@ -56,7 +56,7 @@ async def review_pull_request(ctx: dict, *, installation_id: int, repo: str, num
             run.status = "success"
             run.decision = result.decision
             run.summary = result.summary
-            run.completed_at = datetime.utcnow()
+            run.completed_at = datetime.now(UTC)
             await session.commit()
         except Exception as exc:  # noqa: BLE001
             logger.exception("review failed for %s#%s", repo, number)

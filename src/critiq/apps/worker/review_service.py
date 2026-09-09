@@ -4,6 +4,7 @@ import logging
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from critiq.ai.providers.base import LLMProvider
 from critiq.ai.providers.openrouter import OpenRouterProvider
 from critiq.analysis.diff import FileDiff, parse_patch
 from critiq.core.config import settings
@@ -32,6 +33,7 @@ async def review_pull_request(
     number: int,
     session: AsyncSession,
     policy: ReviewPolicy | None = None,
+    provider: LLMProvider | None = None,
 ) -> ReviewResult:
     """Fetch a PR, run the pipeline, and return the result (not yet posted)."""
     pr = await client.get_pull_request(repo, number)
@@ -42,7 +44,7 @@ async def review_pull_request(
     fetcher = build_github_fetcher(client, repo, head_ref)
 
     policy = policy or ReviewPolicy.defaults()
-    provider = OpenRouterProvider(model=settings.llm_model_cheap)
+    provider = provider or OpenRouterProvider(model=settings.llm_model_cheap)
     result = await run_review(diffs, fetcher, provider, policy=policy)
 
     return result

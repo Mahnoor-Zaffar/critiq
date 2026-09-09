@@ -23,10 +23,6 @@ class Base(DeclarativeBase):
     pass
 
 
-def _ts_now() -> datetime:
-    return datetime.utcnow()
-
-
 class Installation(Base):
     __tablename__ = "installations"
 

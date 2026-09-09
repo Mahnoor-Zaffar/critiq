@@ -30,3 +30,6 @@ htmlcov/
 
 # Docker
 *.log
+
+# Redis
+*.rdb
