@@ -8,10 +8,13 @@ change, understands the surrounding system, finds what matters, and explains why
 
 ## Status
 
-Phase 1 (docs) and Phase 2 (full GitHub App pipeline scaffold) are complete.
+Phase 1 (docs), Phase 2 (full GitHub App pipeline), and Phase 3 (repository
+intelligence + evaluation harness) are complete.
+
 The full architecture is implemented: GitHub App auth + webhooks, diff parsing,
-repo context graph, static + LLM review pipeline, quality gate, and GitHub
-review posting.
+repo context graph + persistent index, static + LLM review pipeline, quality
+gate, GitHub review posting, and an evaluation harness that measures
+precision/recall/false-positive rate against labeled data.
 
 ## Docs
 
@@ -63,6 +66,16 @@ uv run arq src.critiq.apps.worker.worker.WorkerSettings
 
 Expose the API with a tunnel (e.g. `ngrok http 8000`) and point the GitHub App
 webhook URL at `https://<tunnel>/webhooks/github`.
+
+### Evaluation & repo indexing
+
+```bash
+# Run the evaluation harness over a labeled dataset (mock provider, no API key)
+uv run critiq-evaluate datasets/sample.yml
+
+# Build and cache a repository index (speeds context retrieval)
+uv run critiq-index /path/to/repo --cache-dir .critiq-cache --key owner/repo@headsha
+```
 
 ### Tests
 

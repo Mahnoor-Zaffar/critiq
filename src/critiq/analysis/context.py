@@ -49,27 +49,37 @@ class ContextBuilder:
         fetch: FileFetcher,
         policy_yaml: str = "",
         related_limit: int = 8,
+        repo_index=None,
     ) -> RepoContext:
         context = RepoContext(changed_files=changed_files, policy_yaml=policy_yaml)
         graph = ImportGraph()
 
         for fd in changed_files:
-            source = await fetch(fd.path)
-            if not source:
-                continue
-            info = self.parser.parse_module(fd.path, source)
+            if repo_index is not None and fd.path in repo_index.modules:
+                info = repo_index.modules[fd.path]
+            else:
+                source = await fetch(fd.path)
+                if not source:
+                    continue
+                info = self.parser.parse_module(fd.path, source)
             context.modules[fd.path] = info
             graph.add_module(fd.path, info)
 
         related: set[str] = set()
         for path in list(context.modules):
-            related.update(graph.related_paths(path))
+            if repo_index is not None:
+                related.update(repo_index.related_for_change(path))
+            else:
+                related.update(graph.related_paths(path))
 
         for path in related:
             if path in context.modules or path in context.related_files:
                 continue
             if len(context.related_files) >= related_limit:
                 break
+            if repo_index is not None and path in repo_index.modules:
+                context.related_files[path] = repo_index.modules[path].source
+                continue
             source = await fetch(path)
             if source:
                 context.related_files[path] = source

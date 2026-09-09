@@ -144,3 +144,15 @@ class ReviewPolicy(Base):
     )
 
     repository: Mapped[Repository] = relationship(back_populates="policy")
+
+
+class FindingFeedback(Base):
+    """A developer's reaction to a posted finding (feedback-learning loop)."""
+
+    __tablename__ = "finding_feedback"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    finding_id: Mapped[int] = mapped_column(ForeignKey("findings.id"))
+    signal: Mapped[str] = mapped_column(Text)  # accepted | rejected | resolved
+    payload: Mapped[dict] = mapped_column(JSONB, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

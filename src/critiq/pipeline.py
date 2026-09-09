@@ -21,12 +21,13 @@ async def run_review(
     provider: LLMProvider,
     policy: ReviewPolicy | None = None,
     policy_yaml: str = "",
+    repo_index=None,
 ) -> ReviewResult:
     """Run the full review pipeline for a set of changed files."""
     policy = policy or ReviewPolicy.defaults()
     context_builder = ContextBuilder()
     context: RepoContext = await context_builder.build(
-        changed_files=diffs, fetch=fetch, policy_yaml=policy_yaml
+        changed_files=diffs, fetch=fetch, policy_yaml=policy_yaml, repo_index=repo_index
     )
 
     reviewers = build_reviewers(provider, policy)

@@ -39,21 +39,25 @@ spec before changing behavior. Do not duplicate decisions in comments.
 
 ## Status
 
-Phase 1 (docs) and Phase 2 (GitHub App pipeline scaffold) are complete.
-Phase 3 (repository intelligence + evaluation harness) is next.
+Phase 1 (docs), Phase 2 (GitHub App pipeline scaffold), and Phase 3
+(repository intelligence + evaluation harness) are complete. V3 (auto-fix,
+history) is next.
 
 ## Project layout
 
 - `src/critiq/apps/api` — FastAPI app (webhook, health, runs, reviews)
 - `src/critiq/apps/worker` — Arq worker + review task
-- `src/critiq/core` — config, policy, findings, scoring
+- `src/critiq/core` — config, policy, findings, scoring, feedback
 - `src/critiq/analysis` — diff, AST (tree-sitter), graph, context, static
 - `src/critiq/ai` — LLM providers, reviewers, synthesizer
+- `src/critiq/ai/evaluation` — dataset, metrics, runner, CLI
+- `src/critiq/repository` — repo index + cache + CLI
 - `src/critiq/integrations/github` — auth, client, webhook verify
 - `src/critiq/infrastructure/postgres` — SQLAlchemy models, session, init-db
 - `src/critiq/pipeline.py` — run_review orchestrator
 - `migrations/` — Alembic
 - `tests/` — unit + integration
+- `datasets/` — evaluation ground-truth cases
 
 ## Commands
 
@@ -61,4 +65,6 @@ Phase 3 (repository intelligence + evaluation harness) is next.
 - `uv run critiq-api` — run FastAPI app (port 8000)
 - `uv run arq src.critiq.apps.worker.worker.WorkerSettings` — run worker
 - `uv run critiq-init-db` — dev schema bootstrap
+- `uv run critiq-evaluate <dataset>` — run eval harness (mock or openrouter)
+- `uv run critiq-index <repo> --cache-dir <dir>` — build/persist repo index
 - `uv run pytest -q` / `uv run ruff check src tests` / `uv run mypy src`

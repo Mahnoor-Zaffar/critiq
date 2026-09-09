@@ -8,6 +8,8 @@ packages = ["src/critiq"]
 [project.scripts]
 critiq-api = "critiq.apps.api.main:run"
 critiq-init-db = "critiq.infrastructure.postgres.init_db:main"
+critiq-evaluate = "critiq.ai.evaluation.cli:main"
+critiq-index = "critiq.repository.cli:main"
 
 [project]
 name = "critiq"
