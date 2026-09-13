@@ -37,3 +37,27 @@ async def test_context_builder_uses_index_for_related_files(tmp_path):
     )
     assert "app/db.py" in context.related_files
     assert "class DB" in context.related_files["app/db.py"]
+
+
+async def test_context_builder_prefers_head_content_for_changed_files(tmp_path):
+    repo = _make_repo(tmp_path)
+    index = build_index(repo)
+    patch = """@@ -5,6 +5,8 @@
+  def run():
+-    return 1
++    return 2
+"""
+    head_source = ("import os\nfrom app.db import DB\n\n"
+                   "def run():\n    return 2\n")
+
+    async def fetch(path: str) -> str | None:
+        assert path == "app/service.py"
+        return head_source
+
+    context = await ContextBuilder().build(
+        changed_files=[parse_patch("app/service.py", patch)],
+        fetch=fetch,
+        repo_index=index,
+    )
+    assert context.modules["app/service.py"].source == head_source
+    assert "return 2" in context.modules["app/service.py"].source

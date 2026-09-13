@@ -34,6 +34,7 @@ async def review_pull_request(
     session: AsyncSession,
     policy: ReviewPolicy | None = None,
     provider: LLMProvider | None = None,
+    repo_index=None,
 ) -> ReviewResult:
     """Fetch a PR, run the pipeline, and return the result (not yet posted)."""
     pr = await client.get_pull_request(repo, number)
@@ -45,7 +46,9 @@ async def review_pull_request(
 
     policy = policy or ReviewPolicy.defaults()
     provider = provider or OpenRouterProvider(model=settings.llm_model_cheap)
-    result = await run_review(diffs, fetcher, provider, policy=policy)
+    result = await run_review(
+        diffs, fetcher, provider, policy=policy, repo_index=repo_index
+    )
 
     return result
 

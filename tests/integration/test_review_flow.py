@@ -3,9 +3,11 @@ import pytest
 from critiq.ai.providers.mock import MockProvider
 from critiq.apps.worker import review_service
 from critiq.apps.worker import tasks as worker_tasks
+from critiq.core.config import settings as app_settings
 from critiq.core.findings import Finding, FindingSource, ReviewResult
 from critiq.core.policy import Category, ReviewPolicy, Severity
 from critiq.integrations.github.client import ChangedFile
+from critiq.repository.store import IndexCache, build_index
 
 PATCH = """@@ -1,3 +1,7 @@
  import os
@@ -90,9 +92,18 @@ class _FakeRun:
 
 
 @pytest.mark.asyncio
-async def test_worker_task_pipelines_and_posts(monkeypatch):
+async def test_worker_task_pipelines_and_posts(monkeypatch, tmp_path):
     posted = []
     run = _FakeRun()
+    received = {}
+
+    (tmp_path / "app").mkdir()
+    (tmp_path / "app" / "handler.py").write_text(
+        'import os\n\nAPI_KEY = "sk-123456"\n\ndef run():\n    os.system("echo hi")\n'
+    )
+    index = build_index(tmp_path)
+    IndexCache(str(tmp_path / "cache")).save("o/r", index)
+    monkeypatch.setattr(app_settings, "repo_index_dir", str(tmp_path / "cache"))
 
     class FakeAuth:
         def __init__(self, app_id="", private_key=""):
@@ -118,7 +129,10 @@ async def test_worker_task_pipelines_and_posts(monkeypatch):
     async def save_stub(session, run_id, result):
         return None
 
-    async def pipeline_stub(diffs, fetch, provider, policy=None, policy_yaml=""):
+    async def pipeline_stub(
+        client, repo, number, session, policy=None, provider=None, repo_index=None
+    ):
+        received["repo_index"] = repo_index
         return ReviewResult(
             decision="COMMENT",
             risk="LOW",
@@ -151,3 +165,5 @@ async def test_worker_task_pipelines_and_posts(monkeypatch):
     assert posted == [("o/r", 1, "COMMENT")]
     assert run.status == "success"
     assert run.decision == "COMMENT"
+    assert received["repo_index"] is not None
+    assert received["repo_index"].file_count == 1

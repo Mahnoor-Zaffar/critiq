@@ -29,6 +29,8 @@ from critiq.infrastructure.postgres.models import (
 from critiq.infrastructure.postgres.session import async_session_factory
 from critiq.integrations.github.auth import GitHubAuth
 from critiq.integrations.github.client import GitHubClient
+from critiq.repository.index import RepoIndex
+from critiq.repository.store import IndexCache
 
 logger = logging.getLogger("critiq.worker")
 
@@ -40,6 +42,7 @@ async def review_pull_request(ctx: dict, *, installation_id: int, repo: str, num
     client = GitHubClient(token)
 
     policy = await _load_policy(client, repo)
+    repo_index = _load_repo_index(repo)
 
     async with async_session_factory() as session:
         run = await _upsert_run(session, repo, number)
@@ -47,7 +50,9 @@ async def review_pull_request(ctx: dict, *, installation_id: int, repo: str, num
         await session.commit()
 
         try:
-            result = await run_review_pipeline(client, repo, number, session, policy)
+            result = await run_review_pipeline(
+                client, repo, number, session, policy, repo_index=repo_index
+            )
             await _save_findings(session, run.id, result)
 
             if policy.mode == "automatic":
@@ -64,6 +69,20 @@ async def review_pull_request(ctx: dict, *, installation_id: int, repo: str, num
             run.error = str(exc)
             await session.commit()
             raise
+
+
+def _load_repo_index(repo: str) -> RepoIndex | None:
+    """Load a cached RepoIndex for the repo, or None to fall back to per-PR fetches."""
+    try:
+        index: RepoIndex | None = IndexCache(settings.repo_index_dir).load(repo)
+    except Exception:  # noqa: BLE001
+        logger.exception("repo index load failed for %s", repo)
+        return None
+    if index is None:
+        logger.info("no repo index for %s (run `critiq-index` to build one)", repo)
+    else:
+        logger.info("using repo index for %s (%d files)", repo, index.file_count)
+    return index
 
 
 async def _load_policy(client: GitHubClient, repo: str) -> ReviewPolicy:

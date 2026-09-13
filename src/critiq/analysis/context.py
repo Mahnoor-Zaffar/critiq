@@ -55,13 +55,13 @@ class ContextBuilder:
         graph = ImportGraph()
 
         for fd in changed_files:
-            if repo_index is not None and fd.path in repo_index.modules:
+            source = await fetch(fd.path)
+            if source:
+                info = self.parser.parse_module(fd.path, source)
+            elif repo_index is not None and fd.path in repo_index.modules:
                 info = repo_index.modules[fd.path]
             else:
-                source = await fetch(fd.path)
-                if not source:
-                    continue
-                info = self.parser.parse_module(fd.path, source)
+                continue
             context.modules[fd.path] = info
             graph.add_module(fd.path, info)
 

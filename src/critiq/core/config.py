@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://critiq:critiq@localhost:5432/critiq"
     redis_url: str = "redis://localhost:6379/0"
 
+    # Repository intelligence
+    repo_index_dir: str = ".critiq-index"
+
     # Server
     app_host: str = "0.0.0.0"
     app_port: int = 8000
