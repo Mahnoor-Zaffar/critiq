@@ -53,6 +53,21 @@ Returns the status and metadata of a review run (dashboard-lite).
 
 Returns a generated review report.
 
+### POST `/api/feedback/findings/{finding_id}`
+
+Records developer feedback on a finding. Body: `{"signal": "accepted" |
+"rejected" | "resolved", "note": "optional"}`. Returns `201` with the stored
+row. This is the raw API behind the dashboard feedback buttons.
+
+### GET `/api/feedback/findings/{finding_id}`
+
+Lists feedback entries for a finding, newest first.
+
+### GET `/api/feedback/stats`
+
+Aggregates feedback: `total`, `by_signal`, per-signal counts, and
+`acceptance_rate` (accepted / (accepted+rejected+resolved)).
+
 ---
 
 ## 3. GitHub Webhook Contract

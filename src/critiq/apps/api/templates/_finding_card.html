@@ -1,0 +1,41 @@
+<article class="finding" id="finding-{{ f.id }}">
+  <header>
+    <span class="badge sev-{{ f.severity }}">{{ f.severity }}</span>
+    <span class="badge cat">{{ f.category }}</span>
+    <h3>{{ f.title }}</h3>
+    {% if f.last_signal %}<span class="badge signal-{{ f.last_signal }}">{{ f.last_signal }}</span>{% endif %}
+    <span class="conf">conf {{ (f.confidence * 100) | round | int }}%</span>
+  </header>
+  <div class="location">
+    <code class="file">{{ f.file_path }}</code>
+    {% if f.line_start %}<span class="chip">line {{ f.line_start }}{% if f.line_end and f.line_end != f.line_start %}-{{ f.line_end }}{% endif %}</span>{% endif %}
+  </div>
+  <p>{{ f.explanation }}</p>
+  {% if f.evidence %}<blockquote class="evidence">{{ f.evidence }}</blockquote>{% endif %}
+  {% if f.recommendation %}<p class="reco"><b>Recommendation:</b> {{ f.recommendation }}</p>{% endif %}
+
+  <div class="feedback-row" hx-include="closest .finding">
+    <button class="fb fb-accept" hx-post="/dashboard/findings/{{ f.id }}/feedback"
+            hx-vals='{"signal": "accepted"}'
+            hx-target="closest .finding" hx-swap="outerHTML">Accept</button>
+    <button class="fb fb-reject" hx-post="/dashboard/findings/{{ f.id }}/feedback"
+            hx-vals='{"signal": "rejected"}'
+            hx-target="closest .finding" hx-swap="outerHTML">Reject</button>
+    <button class="fb fb-resolve" hx-post="/dashboard/findings/{{ f.id }}/feedback"
+            hx-vals='{"signal": "resolved"}'
+            hx-target="closest .finding" hx-swap="outerHTML">Resolved</button>
+    <input class="fb-note" type="text" name="note" placeholder="optional note">
+  </div>
+
+  {% if f.feedback %}
+  <ul class="feedback-history">
+    {% for fb in f.feedback %}
+    <li>
+      <span class="badge signal-{{ fb.signal }}">{{ fb.signal }}</span>
+      {% if fb.note %}<span class="fb-note-text">“{{ fb.note }}”</span>{% endif %}
+      <span class="muted">{{ fb.created_at }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</article>

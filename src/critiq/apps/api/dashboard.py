@@ -80,6 +80,39 @@ async def run_detail(request: Request, run_id: int) -> HTMLResponse:
     return templates.TemplateResponse(request, "run_detail.html", context)
 
 
+@router.get("/feedback", response_class=HTMLResponse)
+async def feedback_page(request: Request) -> HTMLResponse:
+    async with async_session_factory() as session:
+        data = await _feedback_query(session)
+    context = {"active": "feedback", **data}
+    return templates.TemplateResponse(request, "feedback.html", context)
+
+
+@router.post("/findings/{finding_id}/feedback", response_class=HTMLResponse)
+async def submit_feedback(request: Request, finding_id: int) -> HTMLResponse:
+    form = await request.form()
+    signal = str(form.get("signal", "")).strip().lower()
+    note = str(form.get("note", "")).strip()
+    if signal not in ("accepted", "rejected", "resolved"):
+        return HTMLResponse(status_code=400, content="signal must be accepted|rejected|resolved")
+
+    async with async_session_factory() as session:
+        finding = await session.get(db.Finding, finding_id)
+        if finding is None:
+            return HTMLResponse(status_code=404, content="finding not found")
+        session.add(
+            db.FindingFeedback(
+                finding_id=finding_id,
+                signal=signal,
+                payload={"note": note} if note else {},
+            )
+        )
+        await session.commit()
+        feedback = await _finding_feedback(session, finding_id)
+    card = _finding_card_data(finding, feedback)
+    return templates.TemplateResponse(request, "_finding_card.html", {"f": card})
+
+
 async def _overview_query(session) -> dict:
     counts = {
         "repositories": await _count_rows(session, db.Repository),
@@ -259,6 +292,109 @@ async def _repo_detail_query(session, repo_id: int) -> dict | None:
     }
 
 
+def _finding_card_data(f, feedback: list[dict]) -> dict:
+    return {
+        "id": f.id,
+        "category": f.category,
+        "file_path": f.file_path,
+        "line_start": f.line_start,
+        "line_end": f.line_end,
+        "severity": f.severity,
+        "confidence": f.confidence,
+        "title": f.title,
+        "explanation": f.explanation,
+        "evidence": f.evidence,
+        "recommendation": f.recommendation,
+        "feedback": feedback,
+        "last_signal": feedback[0]["signal"] if feedback else None,
+    }
+
+
+async def _finding_feedback(session, finding_id: int) -> list[dict]:
+    rows = (
+        await session.execute(
+            select(db.FindingFeedback)
+            .where(db.FindingFeedback.finding_id == finding_id)
+            .order_by(db.FindingFeedback.id.desc())
+        )
+    ).scalars().all()
+    return [
+        {
+            "id": fb.id,
+            "signal": fb.signal,
+            "note": fb.payload.get("note", ""),
+            "created_at": _fmt_dt(fb.created_at),
+        }
+        for fb in rows
+    ]
+
+
+async def _feedback_query(session) -> dict:
+    total_stmt = select(func.count()).select_from(db.FindingFeedback)
+    total = (await session.execute(total_stmt)).scalar() or 0
+
+    signal_stmt = (
+        select(db.FindingFeedback.signal, func.count())
+        .group_by(db.FindingFeedback.signal)
+    )
+    by_signal = dict((await session.execute(signal_stmt)).all())
+
+    category_stmt = (
+        select(db.Finding.category, db.FindingFeedback.signal, func.count())
+        .join(db.Finding, db.FindingFeedback.finding_id == db.Finding.id)
+        .group_by(db.Finding.category, db.FindingFeedback.signal)
+    )
+    category_rows = (await session.execute(category_stmt)).all()
+
+    categories: dict[str, dict] = {}
+    for category, signal, count in category_rows:
+        row = categories.setdefault(
+            category, {"accepted": 0, "rejected": 0, "resolved": 0, "total": 0}
+        )
+        row[signal] = count
+        row["total"] += count
+    categories_sorted = [
+        {"category": cat, **row}
+        for cat, row in sorted(categories.items())
+    ]
+
+    recent_stmt = (
+        select(db.FindingFeedback, db.Finding)
+        .join(db.Finding, db.FindingFeedback.finding_id == db.Finding.id)
+        .order_by(db.FindingFeedback.id.desc())
+        .limit(20)
+    )
+    recent_rows = (await session.execute(recent_stmt)).all()
+
+    accepted = by_signal.get("accepted", 0)
+    rejected = by_signal.get("rejected", 0)
+    resolved = by_signal.get("resolved", 0)
+    actionable = accepted + rejected + resolved
+
+    return {
+        "counts": {
+            "total": total,
+            "accepted": accepted,
+            "rejected": rejected,
+            "resolved": resolved,
+            "acceptance_rate": round(accepted / actionable * 100, 1) if actionable else 0.0,
+        },
+        "categories": categories_sorted,
+        "recent": [
+            {
+                "id": fb.id,
+                "signal": fb.signal,
+                "note": fb.payload.get("note", ""),
+                "title": f_e.title,
+                "file_path": f_e.file_path,
+                "severity": f_e.severity,
+                "created_at": _fmt_dt(fb.created_at),
+            }
+            for fb, f_e in recent_rows
+        ],
+    }
+
+
 async def _run_detail_query(session, run_id: int) -> dict | None:
     stmt = (
         select(db.ReviewRun, db.PullRequest, db.Repository)
@@ -277,6 +413,10 @@ async def _run_detail_query(session, run_id: int) -> dict | None:
         .order_by(db.Finding.severity)
     )
     findings = (await session.execute(f_stmt)).scalars().all()
+    finding_cards = [
+        _finding_card_data(f, await _finding_feedback(session, f.id))
+        for f in findings
+    ]
 
     return {
         "run": {
@@ -296,21 +436,7 @@ async def _run_detail_query(session, run_id: int) -> dict | None:
             "head_sha": pr.head_sha or "",
         },
         "repo": repo.full_name,
-        "findings": [
-            {
-                "category": f.category,
-                "file_path": f.file_path,
-                "line_start": f.line_start,
-                "line_end": f.line_end,
-                "severity": f.severity,
-                "confidence": f.confidence,
-                "title": f.title,
-                "explanation": f.explanation,
-                "evidence": f.evidence,
-                "recommendation": f.recommendation,
-            }
-            for f in findings
-        ],
+        "findings": finding_cards,
     }
 
 

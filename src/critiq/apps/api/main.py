@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from critiq.apps.api.dashboard import router as dashboard_router
-from critiq.apps.api.routers import health, reviews, runs
+from critiq.apps.api.routers import feedback, health, reviews, runs
 from critiq.apps.api.webhooks import router as webhooks_router
 
 
@@ -31,6 +31,7 @@ def create_app() -> FastAPI:
     app.include_router(health.router)
     app.include_router(runs.router)
     app.include_router(reviews.router)
+    app.include_router(feedback.router)
     app.include_router(dashboard_router)
     return app
 

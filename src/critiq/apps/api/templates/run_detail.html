@@ -51,21 +51,7 @@
   <h2>Findings ({{ findings | length }})</h2>
   {% if findings %}
     {% for f in findings %}
-    <article class="finding">
-      <header>
-        <span class="badge sev-{{ f.severity }}">{{ f.severity }}</span>
-        <span class="badge cat">{{ f.category }}</span>
-        <h3>{{ f.title }}</h3>
-        <span class="conf">conf {{ (f.confidence * 100) | round | int }}%</span>
-      </header>
-      <div class="location">
-        <code class="file">{{ f.file_path }}</code>
-        {% if f.line_start %}<span class="chip">line {{ f.line_start }}{% if f.line_end and f.line_end != f.line_start %}-{{ f.line_end }}{% endif %}</span>{% endif %}
-      </div>
-      <p>{{ f.explanation }}</p>
-      {% if f.evidence %}<blockquote class="evidence">{{ f.evidence }}</blockquote>{% endif %}
-      {% if f.recommendation %}<p class="reco"><b>Recommendation:</b> {{ f.recommendation }}</p>{% endif %}
-    </article>
+    {% include "_finding_card.html" %}
     {% endfor %}
   {% else %}
   <p class="empty">No findings produced for this run.</p>

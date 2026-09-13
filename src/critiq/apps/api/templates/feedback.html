@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Feedback · Critiq{% endblock %}
+{% block content %}
+
+<section class="page-head">
+  <div>
+    <h1>Feedback</h1>
+    <p class="muted">
+      How the team responds to findings — the signal that calibrates Critiq.
+    </p>
+  </div>
+  <a class="btn" href="/dashboard/runs">Review the latest runs</a>
+</section>
+
+<section class="cards">
+  <div class="card"><div class="card-label">Responses</div><div class="card-value">{{ counts.total }}</div></div>
+  <div class="card"><div class="card-label">Accepted</div><div class="card-value ok-value">{{ counts.accepted }}</div></div>
+  <div class="card"><div class="card-label">Rejected</div><div class="card-value bad-value">{{ counts.rejected }}</div></div>
+  <div class="card"><div class="card-label">Resolved</div><div class="card-value">{{ counts.resolved }}</div></div>
+  <div class="card"><div class="card-label">Acceptance rate</div><div class="card-value">{{ counts.acceptance_rate }}%</div></div>
+</section>
+
+{% if categories %}
+<section class="panel">
+  <h2>By category</h2>
+  <table class="repos">
+    <thead><tr><th>Category</th><th>Accepted</th><th>Rejected</th><th>Resolved</th><th>Total</th></tr></thead>
+    <tbody>
+      {% for c in categories %}
+      <tr>
+        <td>{{ c.category }}</td>
+        <td class="num ok-value">{{ c.accepted }}</td>
+        <td class="num bad-value">{{ c.rejected }}</td>
+        <td class="num">{{ c.resolved }}</td>
+        <td class="num">{{ c.total }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="hint">Categories with high rejection rates suggest your prompt/thresholds
+    are noisy there — tune confidence gates for that category.</p>
+</section>
+{% endif %}
+
+<section class="panel">
+  <h2>Recent responses</h2>
+  {% if recent %}
+  <table class="runs">
+    <thead><tr><th>Signal</th><th>Finding</th><th>File</th><th>Note</th><th>When</th></tr></thead>
+    <tbody>
+      {% for r in recent %}
+      <tr>
+        <td><span class="badge signal-{{ r.signal }}">{{ r.signal }}</span></td>
+        <td>{{ r.title }}</td>
+        <td><code class="file">{{ r.file_path }}</code></td>
+        <td class="pr-title">{% if r.note %}“{{ r.note }}”{% else %}—{% endif %}</td>
+        <td>{{ r.created_at }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty">No feedback yet. Open a review and Accept / Reject / Resolve
+    findings to feed the learning loop.</p>
+  {% endif %}
+</section>
+
+{% endblock %}

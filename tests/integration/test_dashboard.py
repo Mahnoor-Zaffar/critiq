@@ -21,14 +21,14 @@ _RUN = SimpleNamespace(
     completed_at=datetime(2026, 9, 1, 10, 1), error=None,
 )
 _FINDING_1 = SimpleNamespace(
-    review_run_id=7, category="security", file_path="app/handler.py",
+    id=1, review_run_id=7, category="security", file_path="app/handler.py",
     line_start=3, line_end=3, severity="high", confidence=0.96,
     title="Hardcoded secret", explanation="A secret is baked in.",
     evidence="`API_KEY = \"sk-123\"` on line 3.",
     recommendation="Use env vars.",
 )
 _FINDING_2 = SimpleNamespace(
-    review_run_id=7, category="testing", file_path="app/handler.py",
+    id=2, review_run_id=7, category="testing", file_path="app/handler.py",
     line_start=5, line_end=5, severity="low", confidence=0.7,
     title="Missing test", explanation="No test covers this.",
     evidence="cf. app/test_handler.py", recommendation="Add a test.",
@@ -68,6 +68,15 @@ class _Session:
         self.run_detail_rows = run_detail_rows
         self.repo_detail_rows = repo_detail_rows
 
+    async def get(self, model, pk):
+        return _FINDING_1 if pk == 1 else None
+
+    async def add(self, obj):
+        return None
+
+    async def commit(self):
+        return None
+
     async def execute(self, stmt):
         s = " ".join(str(stmt).split())
         if "WHERE review_runs.id" in s and "JOIN pull_requests" in s:
@@ -76,6 +85,12 @@ class _Session:
         if "FROM review_runs JOIN pull_requests" in s:
             return _Result([(_RUN, _PR, _REPO, 2), (_RUN, _PR, _REPO, 1)])
         if "count(" in s:
+            if "finding_feedback" in s and "GROUP BY finding_feedback.signal" in s:
+                return _Result([("accepted", 5), ("rejected", 2)])
+            if "finding_feedback" in s and "GROUP BY findings.category" in s:
+                return _Result([("security", "accepted", 4), ("testing", "rejected", 1)])
+            if "finding_feedback" in s:
+                return _Result([7])
             if "GROUP BY findings.severity" in s:
                 return _Result([("high", 3), ("low", 1)])
             if "GROUP BY findings.category" in s:
@@ -103,6 +118,10 @@ class _Session:
             return _Result([_PR])
         if "FROM findings WHERE" in s:
             return _Result([_FINDING_1, _FINDING_2])
+        if "finding_feedback" in s and "WHERE finding_feedback.finding_id" in s:
+            return _Result([])
+        if "FROM finding_feedback JOIN findings" in s:
+            return _Result([])
         raise AssertionError(f"unhandled statement: {s}")
 
 
@@ -204,6 +223,30 @@ def test_run_detail_missing_returns_404(monkeypatch):
     client = TestClient(create_app())
     resp = client.get("/dashboard/runs/999")
     assert resp.status_code == 404
+
+
+def test_submit_feedback_records_signal(client):
+    resp = client.post(
+        "/dashboard/findings/1/feedback",
+        data={"signal": "accepted", "note": "nice catch"},
+    )
+    assert resp.status_code == 200
+    assert "accepted" in resp.text
+    assert "finding" in resp.text
+
+
+def test_submit_feedback_invalid_signal(client):
+    resp = client.post("/dashboard/findings/1/feedback", data={"signal": "meh"})
+    assert resp.status_code == 400
+
+
+def test_feedback_page_renders_analytics(client):
+    resp = client.get("/dashboard/feedback")
+    assert resp.status_code == 200
+    text = resp.text
+    assert "Feedback" in text
+    assert "Acceptance rate" in text
+    assert "Recent responses" in text
 
 
 def test_static_css_served(client):
