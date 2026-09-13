@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Repositories · Critiq{% endblock %}
+{% block content %}
+
+<section class="page-head">
+  <div>
+    <h1>Repositories</h1>
+    <p class="muted">Connected repositories and their cached intelligence index.</p>
+  </div>
+  {% if index_totals.count %}
+  <div class="index-meta chip">
+    <span>{{ index_totals.count }} indexed</span>
+    <span>{{ index_totals.files }} files</span>
+    <span>{{ index_totals.lines }} lines</span>
+  </div>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <table class="repos">
+    <thead><tr><th>Repository</th><th>Branch</th><th>PRs</th><th>Runs</th><th>Index</th></tr></thead>
+    <tbody>
+      {% for r in repos %}
+      <tr>
+        <td><a href="/dashboard/repos/{{ r.id }}" class="repo-name">{{ r.full_name }}</a></td>
+        <td><code>{{ r.default_branch }}</code></td>
+        <td class="num">{{ r.pr_count }}</td>
+        <td class="num">{{ r.run_count }}</td>
+        {% if r.indexed %}
+        <td><span class="badge ok">✓ {{ r.index_files }} files · {{ r.index_lines }} lines</span></td>
+        {% else %}
+        <td><span class="badge muted">not indexed</span></td>
+        {% endif %}
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="empty">No repositories yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+{% endblock %}

@@ -33,3 +33,6 @@ htmlcov/
 
 # Redis
 *.rdb
+
+# Repo index cache
+.critiq-index/

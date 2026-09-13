@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Review history · Critiq{% endblock %}
+{% block content %}
+
+<section class="page-head">
+  <div>
+    <h1>Review history</h1>
+    <p class="muted">
+      {{ counts.total }} run{{ 's' if counts.total != 1 }}
+      {% if counts.success %} · {{ counts.success }} ok{% endif %}
+      {% if counts.failed %} · {{ counts.failed }} failed{% endif %}
+    </p>
+  </div>
+  <form method="get" action="/dashboard/runs" class="filter">
+    <label for="repo">Repository</label>
+    <select name="repo" id="repo" onchange="this.form.submit()">
+      <option value="">All</option>
+      {% for r in repos %}
+      <option value="{{ r }}" {{ 'selected' if r == repo_filter }}>{{ r }}</option>
+      {% endfor %}
+    </select>
+  </form>
+</section>
+
+<section class="panel">
+  {% if runs %}
+  <table class="runs">
+    <thead><tr><th>Run</th><th>Repository</th><th>PR</th><th>Status</th><th>Decision</th><th>Findings</th><th>Completed</th></tr></thead>
+    <tbody>
+      {% for r in runs %}
+      <tr>
+        <td><a href="/dashboard/runs/{{ r.run_id }}">#{{ r.run_id }}</a></td>
+        <td><a href="/dashboard/repos/{{ r.repo_id }}">{{ r.repo }}</a></td>
+        <td>#{{ r.pr }} <span class="pr-title">{{ r.pr_title }}</span></td>
+        <td><span class="badge state-{{ r.status }}">{{ r.status }}</span></td>
+        <td>{{ r.decision if r.decision else '—' }}</td>
+        <td class="num">{{ r.finding_count }}</td>
+        <td>{{ r.completed_at }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty">No reviews yet. Push a pull request to a connected repository.</p>
+  {% endif %}
+</section>
+
+{% endblock %}

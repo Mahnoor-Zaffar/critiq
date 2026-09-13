@@ -7,9 +7,9 @@
 
 ## 1. Overview
 
-Critiq exposes a small FastAPI surface. In V1 there is **no dashboard**; the
-primary interface is GitHub. The API exists to accept webhooks, enqueue jobs,
-and expose read/status endpoints.
+Critiq exposes a small FastAPI surface. The primary interface is GitHub; the
+API exists to accept webhooks, enqueue jobs, expose read/status endpoints, and
+(V2) serve a read-only dashboard at `/dashboard` (see `dashboard.md`).
 
 ---
 

@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Run #{{ run.id }} · Critiq{% endblock %}
+{% block content %}
+
+<section class="page-head">
+  <div>
+    <h1>Review run #{{ run.id }}</h1>
+    <p class="muted">
+      {{ repo }} &middot; PR #{{ pr.number }} <span class="pr-title">{{ pr.title }}</span>
+      <code>{{ pr.head_branch }}</code>
+    </p>
+  </div>
+  <a class="btn" href="/dashboard/runs">← History</a>
+</section>
+
+<section class="card run-status">
+  <div class="status-col"><span class="badge state-{{ run.status }}">{{ run.status }}</span></div>
+  <div class="status-col">
+    <div class="card-label">Mode</div>
+    <div class="card-subvalue">{{ run.mode }}</div>
+  </div>
+  <div class="status-col">
+    <div class="card-label">Decision</div>
+    <div class="card-subvalue">{{ run.decision if run.decision else '—' }}</div>
+  </div>
+  <div class="status-col">
+    <div class="card-label">Started</div>
+    <div class="card-subvalue">{{ run.started_at }}</div>
+  </div>
+  <div class="status-col">
+    <div class="card-label">Completed</div>
+    <div class="card-subvalue">{{ run.completed_at }}</div>
+  </div>
+</section>
+
+{% if run.error %}
+<section class="panel error-panel">
+  <h2>Error</h2>
+  <pre>{{ run.error }}</pre>
+</section>
+{% endif %}
+
+{% if run.summary %}
+<section class="panel">
+  <h2>Summary</h2>
+  <p class="summary">{{ run.summary }}</p>
+</section>
+{% endif %}
+
+<section class="panel">
+  <h2>Findings ({{ findings | length }})</h2>
+  {% if findings %}
+    {% for f in findings %}
+    <article class="finding">
+      <header>
+        <span class="badge sev-{{ f.severity }}">{{ f.severity }}</span>
+        <span class="badge cat">{{ f.category }}</span>
+        <h3>{{ f.title }}</h3>
+        <span class="conf">conf {{ (f.confidence * 100) | round | int }}%</span>
+      </header>
+      <div class="location">
+        <code class="file">{{ f.file_path }}</code>
+        {% if f.line_start %}<span class="chip">line {{ f.line_start }}{% if f.line_end and f.line_end != f.line_start %}-{{ f.line_end }}{% endif %}</span>{% endif %}
+      </div>
+      <p>{{ f.explanation }}</p>
+      {% if f.evidence %}<blockquote class="evidence">{{ f.evidence }}</blockquote>{% endif %}
+      {% if f.recommendation %}<p class="reco"><b>Recommendation:</b> {{ f.recommendation }}</p>{% endif %}
+    </article>
+    {% endfor %}
+  {% else %}
+  <p class="empty">No findings produced for this run.</p>
+  {% endif %}
+</section>
+
+{% endblock %}

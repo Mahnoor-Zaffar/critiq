@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Overview · Critiq{% endblock %}
+{% block content %}
+
+<section class="page-head">
+  <div>
+    <h1>Overview</h1>
+    <p class="muted">Repository intelligence and review activity across all installations.</p>
+  </div>
+  <a class="btn" href="/dashboard" hx-get="/dashboard" hx-select="#overview-cards"
+     hx-target="#overview-cards" hx-swap="outerHTML">Refresh</a>
+</section>
+
+<div id="overview-cards" class="cards">
+  <div class="card"><div class="card-label">Repositories</div><div class="card-value">{{ counts.repositories }}</div></div>
+  <div class="card"><div class="card-label">Pull requests</div><div class="card-value">{{ counts.pull_requests }}</div></div>
+  <div class="card"><div class="card-label">Review runs</div><div class="card-value">{{ counts.review_runs }}</div></div>
+  <div class="card"><div class="card-label">Findings</div><div class="card-value">{{ counts.findings }}</div></div>
+</div>
+
+<section class="grid">
+  <div class="panel">
+    <h2>Findings by severity</h2>
+    {% if severity %}
+    <ul class="bars">
+      {% for s in ['critical', 'high', 'medium', 'low'] %}
+      <li>
+        <span class="badge sev-{{ s }}">{{ s }}</span>
+        <span class="bar-track"><span class="bar-fill sev-{{ s }}" style="width: {{ severity.get(s, 0) }}0%"></span></span>
+        <span class="bar-count">{{ severity.get(s, 0) }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="empty">No findings yet.</p>
+    {% endif %}
+  </div>
+
+  <div class="panel">
+    <h2>Findings by category</h2>
+    {% if category %}
+    <table class="mini">
+      {% for c, n in category.items() %}
+      <tr><td>{{ c }}</td><td class="num">{{ n }}</td></tr>
+      {% endfor %}
+    </table>
+    {% else %}
+    <p class="empty">No findings yet.</p>
+    {% endif %}
+  </div>
+
+  <div class="panel">
+    <h2>Repository index</h2>
+    {% if index_totals.count %}
+    <div class="index-meta">
+      <span><b>{{ index_totals.count }}</b> cached repos</span>
+      <span><b>{{ index_totals.files }}</b> files</span>
+      <span><b>{{ index_totals.lines }}</b> lines</span>
+      <span><b>{{ (index_totals.disk_bytes / 1024) | round(1) }}</b> kB</span>
+    </div>
+    {% else %}
+    <p class="empty">No repo indexes cached. Build them with
+      <code>critiq-index &lt;checkout&gt; --cache-dir .critiq-index --key owner/repo</code>.</p>
+    {% endif %}
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Recent reviews</h2>
+  {% if recent_runs %}
+  <table class="runs">
+    <thead><tr><th>Run</th><th>Repository</th><th>PR</th><th>Status</th><th>Decision</th><th>Findings</th><th>Completed</th></tr></thead>
+    <tbody>
+      {% for r in recent_runs %}
+      <tr>
+        <td><a href="/dashboard/runs/{{ r.run_id }}">#{{ r.run_id }}</a></td>
+        <td><a href="/dashboard/repos/{{ r.repo_id }}">{{ r.repo }}</a></td>
+        <td>#{{ r.pr }}</td>
+        <td><span class="badge state-{{ r.status }}">{{ r.status }}</span></td>
+        <td>{{ r.decision if r.decision else '—' }}</td>
+        <td class="num">{{ r.finding_count }}</td>
+        <td>{{ r.completed_at }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty">No reviews yet. Push a pull request to a connected repository.</p>
+  {% endif %}
+</section>
+
+{% endblock %}

@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}{{ repo.full_name }} · Critiq{% endblock %}
+{% block content %}
+
+<section class="page-head">
+  <div>
+    <h1>{{ repo.full_name }}</h1>
+    <p class="muted">
+      Default branch <code>{{ repo.default_branch }}</code>
+      &middot; last analyzed {{ repo.last_analyzed_at }}
+    </p>
+  </div>
+  <a class="btn" href="/dashboard/repos">← Repositories</a>
+</section>
+
+{% if index %}
+<section class="panel">
+  <h2>Repository intelligence</h2>
+  <div class="index-meta">
+    <span><b>{{ index.file_count }}</b> files</span>
+    <span><b>{{ index.total_lines }}</b> lines</span>
+    <span class="ok-chip">index cached</span>
+  </div>
+
+  <h3>Largest modules</h3>
+  <table class="repos">
+    <thead><tr><th>Module</th><th>Symbols</th><th>Lines</th><th>Related files</th></tr></thead>
+    <tbody>
+      {% for m in modules %}
+      <tr>
+        <td><code class="file">{{ m.path }}</code></td>
+        <td class="num">{{ m.symbols }}</td>
+        <td class="num">{{ m.lines }}</td>
+        <td class="related">
+          {% for rel in m.related %}<span class="chip">{{ rel }}</span>{% endfor %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% else %}
+<section class="panel">
+  <p class="empty">No cached index for this repository. Build one with
+    <code>critiq-index &lt;checkout&gt; --cache-dir .critiq-index --key {{ repo.full_name }}</code>
+    to power related-file context during reviews.</p>
+</section>
+{% endif %}
+
+<section class="panel">
+  <h2>Pull requests</h2>
+  {% if pull_requests %}
+  <table class="runs">
+    <thead><tr><th>PR</th><th>Title</th><th>Branch</th><th>State</th><th>Runs</th></tr></thead>
+    <tbody>
+      {% for pr in pull_requests %}
+      <tr>
+        <td>#{{ pr.number }}</td>
+        <td>{{ pr.title }}</td>
+        <td><code>{{ pr.head_branch }}</code></td>
+        <td><span class="badge state-{{ pr.state }}">{{ pr.state }}</span></td>
+        <td class="num">{{ pr.runs }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty">No pull requests recorded for this repository.</p>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <h2>Recent review runs</h2>
+  {% if runs %}
+  <table class="runs">
+    <thead><tr><th>Run</th><th>PR</th><th>Status</th><th>Decision</th><th>Findings</th><th>Completed</th></tr></thead>
+    <tbody>
+      {% for r in runs %}
+      <tr>
+        <td><a href="/dashboard/runs/{{ r.run_id }}">#{{ r.run_id }}</a></td>
+        <td>#{{ r.pr }}</td>
+        <td><span class="badge state-{{ r.status }}">{{ r.status }}</span></td>
+        <td>{{ r.decision if r.decision else '—' }}</td>
+        <td class="num">{{ r.finding_count }}</td>
+        <td>{{ r.completed_at }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty">No review runs yet.</p>
+  {% endif %}
+</section>
+
+{% endblock %}

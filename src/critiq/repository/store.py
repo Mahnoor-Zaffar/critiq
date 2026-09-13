@@ -43,6 +43,10 @@ def build_index(root: str | Path) -> RepoIndex:
     return index
 
 
+def cache_key(key: str) -> str:
+    return key.replace("/", "_").replace(".", "_")
+
+
 class IndexCache:
     """Persists a RepoIndex to a JSON file for reuse across review runs."""
 
@@ -51,8 +55,7 @@ class IndexCache:
         self.cache_dir.mkdir(parents=True, exist_ok=True)
 
     def path_for(self, key: str) -> Path:
-        safe = key.replace("/", "_").replace(".", "_")
-        return self.cache_dir / f"{safe}.index.json"
+        return self.cache_dir / f"{cache_key(key)}.index.json"
 
     def load(self, key: str) -> RepoIndex | None:
         path = self.path_for(key)
