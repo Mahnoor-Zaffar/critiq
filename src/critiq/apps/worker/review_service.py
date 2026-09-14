@@ -7,7 +7,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from critiq.ai.providers.base import LLMProvider
 from critiq.ai.providers.openrouter import OpenRouterProvider
 from critiq.analysis.diff import FileDiff, parse_patch
+from critiq.apps.worker.feedback_stats import load_feedback_stats
 from critiq.core.config import settings
+from critiq.core.feedback import ConfidenceCalibrator
 from critiq.core.findings import ReviewResult
 from critiq.core.policy import ReviewPolicy
 from critiq.integrations.github.client import GitHubClient
@@ -46,11 +48,27 @@ async def review_pull_request(
 
     policy = policy or ReviewPolicy.defaults()
     provider = provider or OpenRouterProvider(model=settings.llm_model_cheap)
+    calibrator = await _build_calibrator(session, repo)
     result = await run_review(
-        diffs, fetcher, provider, policy=policy, repo_index=repo_index
+        diffs,
+        fetcher,
+        provider,
+        policy=policy,
+        repo_index=repo_index,
+        calibrator=calibrator,
     )
 
     return result
+
+
+async def _build_calibrator(session, repo: str):
+    """Build a ConfidenceCalibrator from developer feedback, if enabled."""
+    if not settings.confidence_calibration or session is None:
+        return None
+    stats = await load_feedback_stats(session, repo)
+    if not stats:
+        return None
+    return ConfidenceCalibrator(stats)
 
 
 async def post_review(

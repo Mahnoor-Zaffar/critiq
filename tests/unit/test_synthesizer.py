@@ -42,3 +42,37 @@ async def test_synthesize_applies_quality_gate_and_builds_comment():
     assert result.decision in {"APPROVE", "COMMENT", "REQUEST_CHANGES"}
     assert result.comments
     assert result.comments[0].file_path == "app/review.py"
+
+
+async def test_synthesize_applies_confidence_calibrator():
+    provider = MockProvider()
+    policy = ReviewPolicy.defaults()
+    diffs = [parse_patch("app/review.py", PATCH)]
+
+    def calibrator(confidence: float, category: str) -> float:
+        assert category == "security"
+        return 0.55
+
+    finding = Finding(
+        category=Category.SECURITY,
+        file_path="app/review.py",
+        line_start=4,
+        line_end=4,
+        severity=Severity.HIGH,
+        confidence=0.96,
+        title="Hardcoded secret",
+        explanation="Secret hardcoded.",
+        evidence="Line 4.",
+        recommendation="Move to env.",
+        source=FindingSource.STATIC,
+    )
+
+    result = await Synthesizer(
+        provider=provider,
+        synthesis_prompt=read_synthesis_prompt(),
+        policy=policy,
+        calibrator=calibrator,
+    ).synthesize([finding], diffs)
+
+    assert result.findings[0].confidence == 0.55
+    assert "55%" in result.comments[0].body

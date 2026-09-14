@@ -71,14 +71,10 @@ Empty states are handled per page (e.g. "No reviews yet", "not indexed").
 - Pagination beyond current limits (runs capped at 100, modules at 40)
 - Write/configuration UI (editing `.critiq.yml`, approving reviews)
 - Real-time updates (no websockets/SSE)
-- Applying feedback to confidence scores at review time (V3 learning loop —
-  signals are stored; calibration comes later)
 
 ---
 
 ## 6. Future (V3)
 
-- Calibrating confidence from stored accept/reject/resolve signals
-  (`ConfidenceAdjuster` in `core/feedback.py` is ready for this)
 - Index health: staleness vs. HEAD, reindex trigger
 - Charts for finding density over time

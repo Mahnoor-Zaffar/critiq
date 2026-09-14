@@ -38,6 +38,9 @@ class Settings(BaseSettings):
     # Repository intelligence
     repo_index_dir: str = ".critiq-index"
 
+    # Feedback learning loop
+    confidence_calibration: bool = True
+
     # Server
     app_host: str = "0.0.0.0"
     app_port: int = 8000

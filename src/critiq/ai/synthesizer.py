@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Callable
+from dataclasses import replace
+
 from critiq.ai.providers.base import LLMProvider
 from critiq.ai.schemas import SYNTHESIS_SCHEMA
 from critiq.analysis.diff import FileDiff
@@ -46,12 +49,14 @@ class Synthesizer:
         policy: ReviewPolicy,
         model: str | None = None,
         max_comments: int | None = None,
+        calibrator: Callable[[float, str], float] | None = None,
     ) -> None:
         self.provider = provider
         self.synthesis_prompt = synthesis_prompt
         self.policy = policy
         self.model = model
         self.max_comments = max_comments or policy.max_comments
+        self.calibrator = calibrator
 
     async def synthesize(
         self,
@@ -62,6 +67,7 @@ class Synthesizer:
         passed = [f for f in findings if validator.passes(f)]
         passed = [f for f in passed if f.passes_policy(self.policy)]
         final = Deduper().dedupe(passed)
+        final = self._apply_calibration(final)
 
         if not final:
             return ReviewResult(
@@ -124,6 +130,14 @@ class Synthesizer:
             counts[f.severity.value] = counts.get(f.severity.value, 0) + 1
         parts = ", ".join(f"{k}: {v}" for k, v in counts.items()) or "no findings"
         return f"Found {len(findings)} findings ({parts}). See inline comments."
+
+    def _apply_calibration(self, findings: list[Finding]) -> list[Finding]:
+        if self.calibrator is None:
+            return findings
+        return [
+            replace(f, confidence=self.calibrator(f.confidence, f.category.value))
+            for f in findings
+        ]
 
 
 def _render_finding(f: Finding) -> str:

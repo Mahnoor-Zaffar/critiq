@@ -22,6 +22,7 @@ async def run_review(
     policy: ReviewPolicy | None = None,
     policy_yaml: str = "",
     repo_index=None,
+    calibrator: Callable[[float, str], float] | None = None,
 ) -> ReviewResult:
     """Run the full review pipeline for a set of changed files."""
     policy = policy or ReviewPolicy.defaults()
@@ -43,5 +44,6 @@ async def run_review(
         synthesis_prompt=read_synthesis_prompt(),
         policy=policy,
         model=settings.llm_model_strong,
+        calibrator=calibrator,
     )
     return await synthesizer.synthesize(findings, diffs)

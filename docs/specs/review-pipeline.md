@@ -229,3 +229,23 @@ Decision: REQUEST CHANGES
 Risk: HIGH
 2 high-confidence issues, 3 non-blocking recommendations
 ```
+
+---
+
+## 12. Feedback Calibration (V2 learning loop)
+
+Developer accept/reject/resolve signals (see `dashboard.md`, `api.md`) feed
+back into confidence scoring so reviews reflect what this team actually accepts.
+
+- The worker aggregates signals per **category** (`core/feedback.py` →
+  `FeedbackStats`). Repo-local history is preferred; if a repo has none, it
+  falls back to all-repo (global) stats.
+- Before synthesis, each finding's confidence is nudged toward that category's
+  observed acceptance rate (`accepted + resolved` treated as "finding was
+  valid"). The nudge is bounded at ±10 percentage points and scales with the
+  number of signals, saturating at 15 — a few reactions never override the
+  reviewer's own judgment.
+- Calibration is applied **after** the quality gate: gating uses the reviewer's
+  raw confidence; calibrated confidence affects ranking and what is shown.
+- Can be disabled with `CRITIQ_CONFIDENCE_CALIBRATION=false`. The eval harness
+  runs without a calibrator so metrics stay free of feedback bias.

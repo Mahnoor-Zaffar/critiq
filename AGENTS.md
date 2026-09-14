@@ -40,8 +40,9 @@ spec before changing behavior. Do not duplicate decisions in comments.
 ## Status
 
 Phase 1 (docs), Phase 2 (GitHub App pipeline scaffold), and Phase 3
-(repository intelligence + evaluation harness) are complete. V3 (auto-fix,
-history) is next.
+(repository intelligence + evaluation harness) are complete. The dashboard
+(read side + feedback capture) and feedback-driven confidence calibration
+are done, closing the V2 learning loop. V3 (auto-fix, history) is next.
 
 ## Project layout
 
