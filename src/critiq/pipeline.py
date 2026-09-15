@@ -6,6 +6,7 @@ from critiq.ai.providers.base import LLMProvider
 from critiq.ai.reviewers import build_reviewers, read_synthesis_prompt
 from critiq.ai.synthesizer import Synthesizer
 from critiq.analysis.context import ContextBuilder, RepoContext
+from critiq.analysis.custom_rules import CustomRuleEngine
 from critiq.analysis.diff import FileDiff
 from critiq.analysis.static import StaticAnalyzer
 from critiq.core.config import settings
@@ -34,8 +35,10 @@ async def run_review(
     reviewers = build_reviewers(provider, policy)
     findings: list[Finding] = []
     static = StaticAnalyzer()
+    custom = CustomRuleEngine(policy.rules)
     for diff in diffs:
         findings.extend(static.analyze(context, diff))
+        findings.extend(custom.analyze(context, diff))
         for reviewer in reviewers:
             findings.extend(await reviewer.review(context, diff))
 

@@ -38,6 +38,9 @@ class Settings(BaseSettings):
     # Repository intelligence
     repo_index_dir: str = ".critiq-index"
 
+    # Team review profiles (directory of `*.yml` files, referenced via `profile:`)
+    profiles_dir: str = ""
+
     # Feedback learning loop
     confidence_calibration: bool = True
 

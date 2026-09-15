@@ -1,10 +1,15 @@
 from __future__ import annotations
 
+import logging
+import re
+from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
 import yaml
+
+logger = logging.getLogger("critiq.policy")
 
 
 class ReviewMode(StrEnum):
@@ -27,6 +32,27 @@ class Severity(StrEnum):
     HIGH = "high"
     MEDIUM = "medium"
     LOW = "low"
+
+
+@dataclass(frozen=True, slots=True)
+class CustomRule:
+    """A user-defined engineering rule enforced by Critiq.
+
+    `patterns` are compiled regexes matched against added lines by the static
+    engine; `description` is also injected into LLM reviewer prompts so
+    semantic violations can be caught with evidence.
+    """
+
+    id: str
+    name: str
+    description: str
+    severity: Severity
+    categories: frozenset[Category]
+    path: str
+    patterns: tuple[re.Pattern[str], ...]
+
+    def applies_to(self, category: Category | None) -> bool:
+        return not self.categories or category in self.categories
 
 
 class ReviewPolicy:
@@ -72,6 +98,9 @@ class ReviewPolicy:
         languages = review.get("languages", ["python"]) or ["python"]
         self.languages = frozenset(languages)
 
+        self.profile = review.get("profile") or ""
+        self.rules = self._parse_rules(review.get("rules"))
+
     @classmethod
     def defaults(cls) -> ReviewPolicy:
         return cls()
@@ -89,3 +118,73 @@ class ReviewPolicy:
 
     def passes_confidence(self, score: float) -> bool:
         return score >= self.confidence_threshold
+
+    def rule_text(self, category: Category | None = None) -> str:
+        """Natural-language rules block for LLM reviewer prompts."""
+        applicable = [
+            r for r in self.rules if category is None or r.applies_to(category)
+        ]
+        if not applicable:
+            return ""
+        lines = ["Custom engineering rules this repository enforces:"]
+        for rule in applicable:
+            lines.append(f"- {rule.name}: {rule.description}")
+        return "\n".join(lines)
+
+    @staticmethod
+    def _parse_rules(raw) -> list[CustomRule]:
+        if not isinstance(raw, list):
+            return []
+        rules: list[CustomRule] = []
+        for entry in raw:
+            if not isinstance(entry, dict):
+                logger.warning("skipping invalid custom rule entry %r", entry)
+                continue
+            rule = _parse_rule(entry)
+            if rule is not None:
+                rules.append(rule)
+        return rules
+
+
+def _parse_rule(entry: dict[str, Any]) -> CustomRule | None:
+    rule_id = entry.get("id")
+    if not isinstance(rule_id, str) or not rule_id:
+        logger.warning("skipping custom rule without an `id` string")
+        return None
+
+    description = entry.get("description")
+    if not isinstance(description, str):
+        logger.warning("custom rule %r has no `description`; skipping", rule_id)
+        return None
+
+    severity_raw = entry.get("severity", Severity.MEDIUM)
+    if not isinstance(severity_raw, str) or severity_raw not in Severity:
+        logger.warning("custom rule %r has invalid severity %r; skipping", rule_id, severity_raw)
+        return None
+
+    category_raw = entry.get("categories") or []
+    categories = frozenset(
+        Category(c) for c in category_raw if isinstance(c, str) and c in Category
+    )
+
+    patterns_raw = entry.get("patterns") or []
+    patterns: tuple[re.Pattern[str], ...] = ()
+    for pattern in patterns_raw:
+        if not isinstance(pattern, str):
+            logger.warning("custom rule %r has a non-string pattern; skipping", rule_id)
+            return None
+        try:
+            patterns = (*patterns, re.compile(pattern))
+        except re.error:
+            logger.warning("custom rule %r has invalid regex %r; skipping", rule_id, pattern)
+            return None
+
+    return CustomRule(
+        id=rule_id,
+        name=str(entry.get("name", rule_id)),
+        description=description,
+        severity=Severity(severity_raw),
+        categories=categories,
+        path=str(entry.get("path", "**/*")),
+        patterns=patterns,
+    )

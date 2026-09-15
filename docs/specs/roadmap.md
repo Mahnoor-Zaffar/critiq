@@ -35,13 +35,15 @@ The primary interface is the GitHub PR itself. No dashboard.
 
 Once review quality is proven:
 
-- Custom engineering policies (`.critiq.yml` extension)
-- Team review profiles
-- Review history
-- Developer feedback loops
-- **Learning from accepted/rejected comments** (when a dev accepts, rejects,
-  resolves, or edits a suggestion, use it as feedback)
-- Dashboard
+- Custom engineering policies (`.critiq.yml` extension) — shipped
+- Team review profiles — shipped
+- Review history — shipped
+- Developer feedback loops — shipped
+- **Learning from accepted/rejected comments** (accept/reject/resolve signals,
+  confidence calibration) — shipped
+- Dashboard — shipped
+
+V2 is complete.
 
 ---
 
@@ -65,6 +67,7 @@ That moves Critiq toward an actual AI Staff Engineer platform.
 | Evidence + confidence gates | ✅ | — | — |
 | `.critiq.yml` | ✅ | — | — |
 | Custom policies | — | ✅ | — |
+| Team review profiles | — | ✅ | — |
 | Learning from feedback | — | ✅ | — |
 | Dashboard | — | ✅ | — |
 | Automated fixes | — | — | ✅ |

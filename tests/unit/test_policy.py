@@ -36,3 +36,79 @@ def test_disable_category_and_mode():
 def test_from_file_missing_returns_defaults(tmp_path):
     policy = ReviewPolicy.from_file(tmp_path / ".critiq.yml")
     assert policy.mode == "automatic"
+
+
+def test_custom_rules_parse_valid_entries():
+    p = ReviewPolicy(
+        {
+            "review": {
+                "rules": [
+                    {
+                        "id": "no-hardcoded-secrets",
+                        "name": "No credentials in source",
+                        "description": "Secrets must come from env vars.",
+                        "severity": "high",
+                        "categories": ["security", "reliability"],
+                        "path": "**/*.py",
+                        "patterns": [r'API_(KEY|SECRET)\s*=\s*["\'][^"\']+["\']'],
+                    }
+                ]
+            }
+        }
+    )
+    assert len(p.rules) == 1
+    rule = p.rules[0]
+    assert rule.id == "no-hardcoded-secrets"
+    assert rule.severity == Severity.HIGH
+    assert rule.categories == frozenset({Category.SECURITY, Category.RELIABILITY})
+    assert rule.applies_to(Category.SECURITY)
+    assert not rule.applies_to(Category.TESTING)
+    assert rule.patterns and rule.patterns[0].search('API_KEY = "x"')
+
+
+def test_custom_rules_skip_invalid_entries():
+    p = ReviewPolicy(
+        {
+            "review": {
+                "rules": [
+                    {"description": "no id", "patterns": ["x"]},
+                    {"id": "no-desc"},
+                    {"id": "bad-sev", "description": "d", "severity": "urgent", "patterns": ["x"]},
+                    {"id": "bad-regex", "description": "d", "patterns": ["("]},
+                    {"id": "ok", "description": "d", "severity": "low", "patterns": ["TMP"]},
+                ]
+            }
+        }
+    )
+    assert [r.id for r in p.rules] == ["ok"]
+
+
+def test_rule_text_empty_when_no_rules():
+    defaults = ReviewPolicy.defaults()
+    assert defaults.rule_text() == ""
+    assert defaults.rule_text(Category.SECURITY) == ""
+
+
+def test_rule_text_filters_by_category():
+    p = ReviewPolicy(
+        {
+            "review": {
+                "rules": [
+                    {
+                        "id": "sec",
+                        "name": "S",
+                        "description": "sec rule",
+                        "categories": ["security"],
+                        "patterns": ["x"],
+                    },
+                    {"id": "all", "name": "A", "description": "all rule", "patterns": ["y"]},
+                ]
+            }
+        }
+    )
+    security_text = p.rule_text(Category.SECURITY)
+    assert "sec rule" in security_text
+    assert "all rule" in security_text
+    testing_text = p.rule_text(Category.TESTING)
+    assert "sec rule" not in testing_text
+    assert "all rule" in testing_text

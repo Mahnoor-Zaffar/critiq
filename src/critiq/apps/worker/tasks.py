@@ -14,6 +14,7 @@ from critiq.apps.worker.review_service import (
 )
 from critiq.core.config import settings
 from critiq.core.policy import ReviewPolicy
+from critiq.core.profiles import build_policy_yaml
 from critiq.infrastructure.postgres.models import (
     Finding as DbFinding,
 )
@@ -90,10 +91,7 @@ async def _load_policy(client: GitHubClient, repo: str) -> ReviewPolicy:
         raw = await client.get_file_content(repo, ".critiq.yml", "HEAD")
     except Exception:  # noqa: BLE001
         raw = None
-    if raw:
-        import yaml
-        return ReviewPolicy(yaml.safe_load(raw) or {})
-    return ReviewPolicy.defaults()
+    return ReviewPolicy(build_policy_yaml(raw))
 
 
 async def _upsert_run(session, repo: str, number: int) -> DbReviewRun:

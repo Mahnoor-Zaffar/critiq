@@ -35,11 +35,15 @@ def build_reviewers(
         if not policy.allows_category(category):
             continue
         prompt_file = _CATEGORY_PROMPTS[category]
+        system_prompt = _read_prompt(prompt_file)
+        rule_text = policy.rule_text(category)
+        if rule_text:
+            system_prompt = f"{system_prompt}\n\n{rule_text}"
         reviewers.append(
             LlmReviewer(
                 category=category,
                 provider=provider,
-                system_prompt=_read_prompt(prompt_file),
+                system_prompt=system_prompt,
                 model=model or "",
             )
         )
