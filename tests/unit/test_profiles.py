@@ -60,6 +60,20 @@ def test_build_policy_yaml_merges_profile_with_repo_wins(tmp_path, monkeypatch):
     assert merged["review"]["confidence_threshold"] == 0.9
 
 
+def test_build_policy_yaml_merges_fix_profile_categories_then_repo_wins(tmp_path, monkeypatch):
+    (tmp_path / "team.yml").write_text(
+        "review:\n  fix:\n    enabled: true\n    categories: [security]\n    max_patches: 3\n"
+    )
+    monkeypatch.setattr(profiles.settings, "profiles_dir", str(tmp_path))
+
+    merged = build_policy_yaml(
+        "review:\n  profile: team\n  fix:\n    categories: [correctness]\n"
+    )
+    assert merged["review"]["fix"]["enabled"] is True
+    assert merged["review"]["fix"]["max_patches"] == 3
+    assert merged["review"]["fix"]["categories"] == ["correctness"]
+
+
 def test_build_policy_yaml_without_profile_returns_repo_data():
     assert build_policy_yaml("review:\n  mode: approval\n") == {"review": {"mode": "approval"}}
 

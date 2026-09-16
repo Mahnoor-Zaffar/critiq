@@ -83,6 +83,51 @@ def test_custom_rules_skip_invalid_entries():
     assert [r.id for r in p.rules] == ["ok"]
 
 
+def test_fix_defaults_disabled():
+    p = ReviewPolicy.defaults()
+    assert not p.fix_enabled
+    assert p.fix_categories == frozenset({Category.SECURITY, Category.CORRECTNESS})
+    assert p.max_patches == 10
+    assert p.fix_apply == "suggest"
+
+
+def test_fix_block_parses():
+    p = ReviewPolicy(
+        {
+            "review": {
+                "fix": {
+                    "enabled": True,
+                    "categories": ["security", "performance"],
+                    "max_patches": 3,
+                    "apply": "push",
+                }
+            }
+        }
+    )
+    assert p.fix_enabled
+    assert p.fix_categories == frozenset({Category.SECURITY, Category.PERFORMANCE})
+    assert p.max_patches == 3
+    assert p.fix_apply == "push"
+
+
+def test_fix_block_ignores_bad_values():
+    p = ReviewPolicy(
+        {
+            "review": {
+                "fix": {
+                    "enabled": True,
+                    "categories": ["not-a-category"],
+                    "max_patches": "nope",
+                    "apply": "sideways",
+                }
+            }
+        }
+    )
+    assert p.fix_categories == frozenset({Category.SECURITY, Category.CORRECTNESS})
+    assert p.max_patches == 10
+    assert p.fix_apply == "suggest"
+
+
 def test_rule_text_empty_when_no_rules():
     defaults = ReviewPolicy.defaults()
     assert defaults.rule_text() == ""

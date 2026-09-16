@@ -53,6 +53,9 @@ class Repository(Base):
     policy: Mapped[ReviewPolicy | None] = relationship(
         back_populates="repository", uselist=False
     )
+    org_setting: Mapped[OrgSetting | None] = relationship(
+        back_populates="repository", uselist=False
+    )
 
 
 class PullRequest(Base):
@@ -95,6 +98,7 @@ class ReviewRun(Base):
 
     pull_request: Mapped[PullRequest] = relationship(back_populates="review_runs")
     findings: Mapped[list[Finding]] = relationship(back_populates="review_run")
+    patches: Mapped[list[AutoFixPatch]] = relationship(back_populates="review_run")
 
 
 class Finding(Base):
@@ -121,6 +125,7 @@ class Finding(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     review_run: Mapped[ReviewRun] = relationship(back_populates="findings")
+    patches: Mapped[list[AutoFixPatch]] = relationship(back_populates="finding")
 
 
 class ReviewPolicy(Base):
@@ -135,6 +140,7 @@ class ReviewPolicy(Base):
     categories_enabled: Mapped[dict] = mapped_column(JSONB, default=dict)
     mode: Mapped[str] = mapped_column(Text, default="automatic")
     model_routing: Mapped[dict] = mapped_column(JSONB, default=dict)
+    fix: Mapped[dict] = mapped_column(JSONB, default=dict)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now()
     )
@@ -152,3 +158,53 @@ class FindingFeedback(Base):
     signal: Mapped[str] = mapped_column(Text)  # accepted | rejected | resolved
     payload: Mapped[dict] = mapped_column(JSONB, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class AutoFixPatch(Base):
+    """A proposed code fix for a finding (V3 auto-fix)."""
+
+    __tablename__ = "autofix_patches"
+    __table_args__ = (
+        UniqueConstraint("review_run_id", "file_path", name="uq_patch_run_file"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    review_run_id: Mapped[int] = mapped_column(ForeignKey("review_runs.id"))
+    finding_id: Mapped[int] = mapped_column(ForeignKey("findings.id"))
+    file_path: Mapped[str] = mapped_column(Text)
+    line_start: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    line_end: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    replacement_text: Mapped[str] = mapped_column(Text)
+    version: Mapped[int] = mapped_column(Integer, server_default="1")
+    status: Mapped[str] = mapped_column(
+        Enum("offered", "applied", "rejected", name="patch_status")
+    )
+    test_status: Mapped[str | None] = mapped_column(
+        Enum("passed", "failed", "unverified", name="patch_test_status"), nullable=True
+    )
+    review_comment_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    commit_sha: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+    review_run: Mapped[ReviewRun] = relationship(back_populates="patches")
+    finding: Mapped[Finding] = relationship(back_populates="patches")
+
+
+class OrgSetting(Base):
+    """Per-repository auto-fix behavior (V3 auto-fix)."""
+
+    __tablename__ = "org_settings"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    repository_id: Mapped[int] = mapped_column(
+        ForeignKey("repositories.id"), unique=True
+    )
+    auto_push_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+    repository: Mapped[Repository] = relationship(back_populates="org_setting")

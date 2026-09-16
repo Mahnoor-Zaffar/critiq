@@ -63,6 +63,10 @@ class ReviewPolicy:
     DEFAULT_SEVERITY_THRESHOLD = Severity.MEDIUM
     DEFAULT_CONFIDENCE_THRESHOLD = 0.85
     DEFAULT_MAX_COMMENTS = 10
+    DEFAULT_FIX_ENABLED = False
+    DEFAULT_FIX_CATEGORIES = frozenset({Category.SECURITY, Category.CORRECTNESS})
+    DEFAULT_MAX_PATCHES = 10
+    DEFAULT_FIX_APPLY = "suggest"
 
     def __init__(self, data: dict[str, Any] | None = None) -> None:
         data = data or {}
@@ -100,6 +104,21 @@ class ReviewPolicy:
 
         self.profile = review.get("profile") or ""
         self.rules = self._parse_rules(review.get("rules"))
+
+        fix = review.get("fix", {}) or {}
+        self.fix_enabled = bool(fix.get("enabled", self.DEFAULT_FIX_ENABLED))
+        raw_categories = fix.get("categories") or []
+        explicit = frozenset(
+            Category(c) for c in raw_categories if isinstance(c, str) and c in Category
+        )
+        self.fix_categories = explicit or self.DEFAULT_FIX_CATEGORIES
+        max_patches = fix.get("max_patches", self.DEFAULT_MAX_PATCHES)
+        try:
+            self.max_patches = int(max_patches)
+        except (TypeError, ValueError):
+            self.max_patches = self.DEFAULT_MAX_PATCHES
+        fix_apply = fix.get("apply", self.DEFAULT_FIX_APPLY)
+        self.fix_apply = fix_apply if fix_apply in ("suggest", "push") else self.DEFAULT_FIX_APPLY
 
     @classmethod
     def defaults(cls) -> ReviewPolicy:

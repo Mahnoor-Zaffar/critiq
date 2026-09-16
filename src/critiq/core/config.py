@@ -44,6 +44,11 @@ class Settings(BaseSettings):
     # Feedback learning loop
     confidence_calibration: bool = True
 
+    # Auto-fix (V3)
+    admin_token: str = ""
+    test_timeout_seconds: float = 60.0
+    workspace_dir: str = ""
+
     # Server
     app_host: str = "0.0.0.0"
     app_port: int = 8000
