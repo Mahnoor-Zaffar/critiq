@@ -54,6 +54,7 @@ class ReviewComment:
     body: str
     start_line: int | None = None
     end_line: int | None = None
+    finding: Finding | None = None
 
 
 @dataclass(slots=True)

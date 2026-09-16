@@ -146,9 +146,13 @@ class PatchGenerator:
         self.parser = parser or PythonParser()
 
     async def generate(
-        self, candidate: PatchCandidate, fetch: SourceFetcher
+        self,
+        candidate: PatchCandidate,
+        fetch: SourceFetcher,
+        source: str | None = None,
     ) -> GeneratedPatch | None:
-        source = await fetch(candidate.file_diff.path)
+        if source is None:
+            source = await fetch(candidate.file_diff.path)
         if source is None:
             logger.warning("no source for %s; dropping patch", candidate.file_diff.path)
             return None

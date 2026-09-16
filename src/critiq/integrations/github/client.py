@@ -86,11 +86,7 @@ class GitHubClient:
             "body": body,
             "event": event,
             "comments": [
-                {
-                    "path": c.file_path,
-                    "line": c.start_line,  # new-file line
-                    "body": c.body,
-                }
+                _review_comment_payload(c)
                 for c in comments
             ],
         }
@@ -98,3 +94,17 @@ class GitHubClient:
             "POST", f"/repos/{repo}/pulls/{number}/reviews", json=payload
         )
         return resp.json()
+
+
+def _review_comment_payload(c: ReviewComment) -> dict:
+    end_line = c.end_line or c.start_line
+    item: dict = {
+        "path": c.file_path,
+        "line": end_line,
+        "side": "RIGHT",
+        "body": c.body,
+    }
+    if c.start_line is not None and c.start_line != end_line:
+        item["start_line"] = c.start_line
+        item["start_side"] = "RIGHT"
+    return item

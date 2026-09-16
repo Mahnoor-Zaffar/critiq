@@ -120,6 +120,7 @@ class Synthesizer:
                     body=body,
                     start_line=f.line_start,
                     end_line=f.line_end,
+                    finding=f,
                 )
             )
         return comments

@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 import logging
+from types import SimpleNamespace
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from critiq.ai.providers.base import LLMProvider
 from critiq.ai.providers.openrouter import OpenRouterProvider
 from critiq.analysis.diff import FileDiff, parse_patch
+from critiq.apps.worker.auto_fix import AutoFixRunner
 from critiq.apps.worker.feedback_stats import load_feedback_stats
+from critiq.apps.worker.test_runner import PatchVerifier
+from critiq.apps.worker.workspace import WorkspaceManager
 from critiq.core.config import settings
 from critiq.core.feedback import ConfidenceCalibrator
 from critiq.core.findings import ReviewResult
@@ -58,6 +62,11 @@ async def review_pull_request(
         calibrator=calibrator,
     )
 
+    if policy.fix_enabled and result.findings:
+        verifier = _build_verifier(client, repo, pr, number)
+        runner = AutoFixRunner(policy=policy, verifier=verifier)
+        result.comments = await runner.run(diffs, result.findings, result.comments, fetcher)
+
     return result
 
 
@@ -69,6 +78,22 @@ async def _build_calibrator(session, repo: str):
     if not stats:
         return None
     return ConfidenceCalibrator(stats)
+
+
+def _build_verifier(
+    client: GitHubClient, repo: str, pr: dict, number: int
+) -> PatchVerifier:
+    if not settings.admin_token or not settings.workspace_dir:
+        return PatchVerifier()
+    manager = WorkspaceManager(settings.workspace_dir)
+    clone_url = f"https://x-access-token:{client.token}@github.com/{repo}.git"
+    base_sha = pr["base"]["sha"]
+    head_ref = pr["head"]["sha"]
+
+    async def checkout():
+        return await manager.checkout(clone_url, number, head_ref, base_sha)
+
+    return PatchVerifier(workspaces=SimpleNamespace(checkout=checkout))
 
 
 async def post_review(
