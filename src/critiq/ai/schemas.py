@@ -65,3 +65,14 @@ SYNTHESIS_SCHEMA: dict[str, Any] = {
     "required": ["decision", "risk", "summary"],
     "additionalProperties": False,
 }
+
+PATCH_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "replacement": {"type": "string"},
+        "line_start": {"type": "integer"},
+        "line_end": {"type": "integer"},
+    },
+    "required": ["replacement", "line_start", "line_end"],
+    "additionalProperties": False,
+}

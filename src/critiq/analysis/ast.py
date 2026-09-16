@@ -36,6 +36,11 @@ class PythonParser:
         self._language = tree_sitter.Language(tree_sitter_python.language())
         self._parser = tree_sitter.Parser(self._language)
 
+    def validate(self, source: str) -> bool:
+        """True when `source` parses without tree-sitter syntax errors."""
+        tree = self._parser.parse(source.encode("utf-8"))
+        return not tree.root_node.has_error
+
     def parse_module(self, path: str, source: str) -> ModuleInfo:
         data = source.encode("utf-8")
         tree = self._parser.parse(data)
