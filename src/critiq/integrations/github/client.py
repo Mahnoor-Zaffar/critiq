@@ -67,6 +67,17 @@ class GitHubClient:
             return base64.b64decode(data.get("content", "")).decode("utf-8", "replace")
         return None
 
+    async def get_file_sha(self, repo: str, path: str, ref: str) -> str | None:
+        resp = await self._request(
+            "GET",
+            f"/repos/{repo}/contents/{path}",
+            params={"ref": ref},
+        )
+        data = resp.json()
+        if data.get("type") == "file":
+            return data.get("sha")
+        return None
+
     async def get_blob(self, repo: str, sha: str) -> str:
         resp = await self._request(
             "GET", f"/repos/{repo}/git/blobs/{sha}",
@@ -94,6 +105,91 @@ class GitHubClient:
             "POST", f"/repos/{repo}/pulls/{number}/reviews", json=payload
         )
         return resp.json()
+
+    async def update_review_comment(
+        self, repo: str, comment_id: int, body: str
+    ) -> dict:
+        resp = await self._request(
+            "PATCH",
+            f"/repos/{repo}/pulls/comments/{comment_id}",
+            json={"body": body},
+        )
+        return resp.json()
+
+    async def get_review_comment(self, repo: str, comment_id: int) -> str:
+        resp = await self._request(
+            "GET", f"/repos/{repo}/pulls/comments/{comment_id}"
+        )
+        return resp.json().get("body", "")
+
+    async def get_ref(self, repo: str, ref: str) -> str | None:
+        resp = await self._request(
+            "GET", f"/repos/{repo}/git/ref/heads/{ref}"
+        )
+        return resp.json().get("object", {}).get("sha")
+
+    async def update_file_content(
+        self,
+        repo: str,
+        path: str,
+        message: str,
+        content: str,
+        current_sha: str,
+        branch: str,
+    ) -> dict:
+        import base64
+
+        encoded = base64.b64encode(content.encode("utf-8")).decode("utf-8")
+        payload = {
+            "message": message,
+            "content": encoded,
+            "sha": current_sha,
+            "branch": branch,
+        }
+        resp = await self._request(
+            "PUT", f"/repos/{repo}/contents/{path}", json=payload
+        )
+        return resp.json()
+
+    async def branch_protected(self, repo: str, branch: str) -> bool:
+        try:
+            await self._request(
+                "GET", f"/repos/{repo}/branches/{branch}/protection"
+            )
+            return True
+        except GitHubClientError:
+            return False
+
+    async def patch_diff_basis(self, repo: str, number: int, path: str, line: int) -> bool:
+        """True when the added line anchoring a finding is still in the PR diff."""
+        files = await self.get_pull_files(repo, number)
+        for f in files:
+            if f.filename != path or not f.patch:
+                continue
+            added = [
+                int(ln)
+                for ln in _added_line_numbers(f.patch)
+            ]
+            return line in added
+        return False
+
+
+def _added_line_numbers(patch: str) -> list[int]:
+    lines = []
+    new_line = 0
+    for raw in patch.splitlines():
+        if raw.startswith("@@ "):
+            parts = raw.split("+")[1].split(" ")[0]
+            new_line = int(parts.split(",")[0])
+            continue
+        if raw.startswith("+"):
+            lines.append(new_line)
+            new_line += 1
+        elif raw.startswith("-"):
+            continue
+        else:
+            new_line += 1
+    return lines
 
 
 def _review_comment_payload(c: ReviewComment) -> dict:

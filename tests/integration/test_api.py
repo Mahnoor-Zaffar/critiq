@@ -49,6 +49,63 @@ def test_webhook_non_pull_request_event_accepted(monkeypatch):
     assert resp.status_code == 200
 
 
+def test_webhook_closed_action_queues_reconcile(monkeypatch):
+    from critiq.apps.api import webhooks
+    from critiq.core.config import settings
+
+    queued = []
+
+    async def enqueue_stub(installation_id, repo, number, action):
+        queued.append((installation_id, repo, number, action))
+
+    monkeypatch.setattr(webhooks, "_enqueue", enqueue_stub)
+    monkeypatch.setattr(settings, "github_webhook_secret", "test-secret")
+
+    payload = (
+        b'{"action":"closed","installation":{"id":3},'
+        b'"repository":{"full_name":"o/r"},"pull_request":{"number":9}}'
+    )
+    client = TestClient(create_app())
+    resp = client.post(
+        "/webhooks/github",
+        content=payload,
+        headers={
+            "X-GitHub-Event": "pull_request",
+            "X-Hub-Signature-256": _sig(payload, "test-secret"),
+        },
+    )
+    assert resp.status_code == 200
+    assert queued == [(3, "o/r", 9, "closed")]
+
+
+def test_webhook_synchronize_passes_action(monkeypatch):
+    from critiq.apps.api import webhooks
+    from critiq.core.config import settings
+
+    queued = []
+
+    async def enqueue_stub(installation_id, repo, number, action):
+        queued.append((installation_id, repo, number, action))
+
+    monkeypatch.setattr(webhooks, "_enqueue", enqueue_stub)
+    monkeypatch.setattr(settings, "github_webhook_secret", "test-secret")
+
+    payload = (
+        b'{"action":"synchronize","installation":{"id":3},'
+        b'"repository":{"full_name":"o/r"},"pull_request":{"number":9}}'
+    )
+    client = TestClient(create_app())
+    client.post(
+        "/webhooks/github",
+        content=payload,
+        headers={
+            "X-GitHub-Event": "pull_request",
+            "X-Hub-Signature-256": _sig(payload, "test-secret"),
+        },
+    )
+    assert queued == [(3, "o/r", 9, "synchronize")]
+
+
 class _FbResult:
     def __init__(self, rows):
         self._rows = rows

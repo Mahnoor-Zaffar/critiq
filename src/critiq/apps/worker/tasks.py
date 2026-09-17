@@ -1,11 +1,18 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
 from arq import create_pool
 from sqlalchemy import select
 
+from critiq.apps.worker.fix_lifecycle import (
+    org_push_enabled,
+    push_if_allowed,
+    save_patch_rows,
+)
+from critiq.apps.worker.reconcile import reconcile_patches
 from critiq.apps.worker.review_service import (
     post_review,
 )
@@ -36,7 +43,96 @@ from critiq.repository.store import IndexCache
 logger = logging.getLogger("critiq.worker")
 
 
-async def review_pull_request(ctx: dict, *, installation_id: int, repo: str, number: int) -> None:
+@dataclass(slots=True)
+class PushState:
+    commits: dict[int, str] = field(default_factory=dict)
+
+
+async def _apply_push_mode(
+    client: GitHubClient,
+    repo: str,
+    number: int,
+    session,
+    policy: ReviewPolicy,
+    result,
+) -> PushState:
+    """Push offered patches when the double gate passes (AC-5), else leave as-is.
+
+    On a successful push the suggestion comment for that finding is dropped from
+    the review and the summary notes the commit.
+    """
+    if not result.patches or policy.fix_apply != "push":
+        return PushState()
+    if not await org_push_enabled(session, repo):
+        logger.info("push mode skipped for %s: no OrgSetting approval", repo)
+        return PushState()
+
+    pr = await client.get_pull_request(repo, number)
+    tested_head_sha = pr["head"]["sha"]
+    commits, _remaining = await push_if_allowed(
+        client, repo, pr, result.patches, tested_head_sha
+    )
+    if not commits:
+        return PushState()
+
+    pushed_finding_ids = set(commits)
+    kept_comments = [
+        c for c in result.comments if c.finding is None or id(c.finding) not in pushed_finding_ids
+    ]
+    result.comments = kept_comments
+    _note_commits_in_summary(result, commits)
+    return PushState(commits=commits)
+
+
+def _note_commits_in_summary(result, commits: dict[int, str]) -> None:
+    shas = ", ".join(f"`{sha[:7]}`" for sha in commits.values())
+    result.summary = f"{result.summary}\n\nPushed auto-fix commits: {shas}"
+
+
+def _map_comment_ids(review_event: dict | None, comments) -> dict[int, int]:
+    """Map posted GitHub comment ids back to the finding id behind each comment."""
+    if review_event is None:
+        return {}
+    posted = review_event.get("comments") or []
+    mapping: dict[int, int] = {}
+    for comment in comments:
+        if comment.finding is None:
+            continue
+        match = next(
+            (
+                p
+                for p in posted
+                if p.get("path") == comment.file_path
+                and p.get("line") in (comment.end_line, comment.start_line)
+            ),
+            None,
+        )
+        if match is not None:
+            mapping[id(comment.finding)] = int(match["id"])
+    return mapping
+
+
+async def _reconcile_closed(
+    session, client: GitHubClient, repo: str, number: int
+) -> None:
+    pr = await client.get_pull_request(repo, number)
+    await reconcile_patches(
+        client, repo, number, pr["head"]["sha"], "closed", session
+    )
+
+
+async def _reconcile_review(
+    session, client: GitHubClient, repo: str, number: int
+) -> None:
+    pr = await client.get_pull_request(repo, number)
+    await reconcile_patches(
+        client, repo, number, pr["head"]["sha"], "synchronize", session
+    )
+
+
+async def review_pull_request(
+    ctx: dict, *, installation_id: int, repo: str, number: int, action: str = "opened"
+) -> None:
     """Arq task: run and post a review for a pull request (or save for approval)."""
     auth = GitHubAuth(settings.github_app_id, settings.github_app_private_key)
     token = await auth.get_installation_token(installation_id)
@@ -46,18 +142,42 @@ async def review_pull_request(ctx: dict, *, installation_id: int, repo: str, num
     repo_index = _load_repo_index(repo)
 
     async with async_session_factory() as session:
+        if action == "closed":
+            await _reconcile_closed(session, client, repo, number)
+            return
+
         run = await _upsert_run(session, repo, number)
         run.status = "running"
         await session.commit()
 
         try:
+            if action in ("synchronize", "reopened"):
+                await _reconcile_review(session, client, repo, number)
+
             result = await run_review_pipeline(
                 client, repo, number, session, policy, repo_index=repo_index
             )
-            await _save_findings(session, run.id, result)
+            finding_map = await _save_findings(session, run.id, result)
+            patch_state = await _apply_push_mode(
+                client, repo, number, session, policy, result
+            )
 
+            review_comment_id_by_finding: dict[int, int] = {}
             if policy.mode == "automatic":
-                await post_review(client, repo, number, result)
+                review_event = await post_review(client, repo, number, result)
+                review_comment_id_by_finding = _map_comment_ids(
+                    review_event, result.comments
+                )
+
+            if result.patches:
+                await save_patch_rows(
+                    session,
+                    run.id,
+                    finding_map,
+                    result.patches,
+                    review_comment_id_by_finding=review_comment_id_by_finding,
+                    commit_sha_by_finding=patch_state.commits,
+                )
 
             run.status = "success"
             run.decision = result.decision
@@ -119,7 +239,8 @@ async def _upsert_run(session, repo: str, number: int) -> DbReviewRun:
     return run
 
 
-async def _save_findings(session, run_id: int, result) -> None:
+async def _save_findings(session, run_id: int, result) -> dict[int, int]:
+    finding_map: dict[int, int] = {}
     for f in result.findings:
         db_f = DbFinding(
             review_run_id=run_id,
@@ -137,7 +258,10 @@ async def _save_findings(session, run_id: int, result) -> None:
             posted=True,
         )
         session.add(db_f)
+        await session.flush()
+        finding_map[id(f)] = db_f.id
     await session.commit()
+    return finding_map
 
 
 async def get_redis_pool():

@@ -90,10 +90,10 @@ async def test_passed_replaces_comment_with_suggestion():
     async def fake_fetch(path):
         return SOURCE
     result = await runner.run([diff], [finding], [comment], fake_fetch)
-    assert len(result) == 1
-    assert result[0] is not comment
-    assert "Test verified" in result[0].body
-    assert "```suggestion" in result[0].body
+    assert len(result.comments) == 1
+    assert result.comments[0] is not comment
+    assert "Test verified" in result.comments[0].body
+    assert "```suggestion" in result.comments[0].body
 
 
 @pytest.mark.asyncio
@@ -113,7 +113,7 @@ async def test_failed_keeps_original_comment():
     async def fake_fetch(path):
         return SOURCE
     result = await runner.run([diff], [finding], [comment], fake_fetch)
-    assert result[0] is comment
+    assert result.comments[0] is comment
 
 
 @pytest.mark.asyncio
@@ -129,7 +129,7 @@ async def test_generator_returns_none_keeps_original_comment():
     async def fake_fetch(path):
         return SOURCE
     result = await runner.run([diff], [finding], [comment], fake_fetch)
-    assert result[0] is comment
+    assert result.comments[0] is comment
 
 
 @pytest.mark.asyncio
@@ -154,7 +154,7 @@ async def test_drift_keeps_original_comment():
         call_count[0] += 1
         return drifted_source if call_count[0] > 1 else SOURCE
     result = await runner.run([diff], [finding], [comment], drift_fetch)
-    assert result[0] is comment
+    assert result.comments[0] is comment
 
 
 @pytest.mark.asyncio
@@ -164,7 +164,7 @@ async def test_disabled_returns_unchanged_comments():
     diff = parse_patch("handler.py", PATCH)
     runner = AutoFixRunner(policy=ReviewPolicy.defaults())
     result = await runner.run([diff], [finding], [comment], lambda p: None)
-    assert result == [comment]
+    assert result.comments == [comment]
 
 
 @pytest.mark.asyncio
@@ -188,4 +188,4 @@ async def test_no_candidates_returns_unchanged_comments():
         policy=ReviewPolicy({"review": {"fix": {"enabled": True}}}),
     )
     result = await runner.run([diff], [finding], [comment], lambda p: None)
-    assert result == [comment]
+    assert result.comments == [comment]

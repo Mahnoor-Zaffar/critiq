@@ -66,3 +66,4 @@ class ReviewResult:
     summary: str = ""
     comments: list[ReviewComment] = field(default_factory=list)
     findings: list[Finding] = field(default_factory=list)
+    patches: list = field(default_factory=list)

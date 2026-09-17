@@ -65,7 +65,9 @@ async def review_pull_request(
     if policy.fix_enabled and result.findings:
         verifier = _build_verifier(client, repo, pr, number)
         runner = AutoFixRunner(policy=policy, verifier=verifier)
-        result.comments = await runner.run(diffs, result.findings, result.comments, fetcher)
+        fix_result = await runner.run(diffs, result.findings, result.comments, fetcher)
+        result.comments = fix_result.comments
+        result.patches = fix_result.patches
 
     return result
 
@@ -102,12 +104,12 @@ async def post_review(
     number: int,
     result: ReviewResult,
     event: str = "COMMENT",
-) -> None:
-    """Post the review to GitHub (inline comments + body)."""
+) -> dict:
+    """Post the review to GitHub (inline comments + body). Returns the response."""
     body = (
         f"## Critiq Review\n\n"
         f"**Decision:** {result.decision}\n"
         f"**Risk:** {result.risk}\n\n"
         f"{result.summary}"
     )
-    await client.create_review(repo, number, body, result.comments, event=event)
+    return await client.create_review(repo, number, body, result.comments, event=event)

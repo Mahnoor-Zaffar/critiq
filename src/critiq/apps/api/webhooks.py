@@ -12,7 +12,7 @@ from critiq.integrations.github.webhook import verify_signature
 logger = logging.getLogger("critiq.webhooks")
 router = APIRouter()
 
-HANDLED_ACTIONS = {"opened", "synchronize", "reopened"}
+HANDLED_ACTIONS = {"opened", "synchronize", "reopened", "closed"}
 
 
 @router.post("/webhooks/github")
@@ -51,6 +51,7 @@ async def _enqueue(installation_id: int, repo: str, number: int, action: str) ->
                 installation_id=installation_id,
                 repo=repo,
                 number=number,
+                action=action,
             )
         finally:
             await pool.close()

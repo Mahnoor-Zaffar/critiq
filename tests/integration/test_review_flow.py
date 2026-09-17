@@ -150,6 +150,7 @@ async def test_worker_task_pipelines_and_posts(monkeypatch, tmp_path):
 
     async def post_stub(client, repo, number, result, event="COMMENT"):
         posted.append((repo, number, result.decision))
+        return {"id": 1, "comments": []}
 
     monkeypatch.setattr(worker_tasks, "GitHubAuth", FakeAuth)
     monkeypatch.setattr(worker_tasks, "GitHubClient", lambda token: FakeGitHubClient())
