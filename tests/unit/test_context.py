@@ -1,6 +1,21 @@
-from critiq.analysis.context import ContextBuilder
+from critiq.analysis.context import ContextBuilder, RepoContext
 from critiq.analysis.diff import parse_patch
 from critiq.repository.store import build_index
+
+
+async def test_repo_context_renders_history_block():
+    context = RepoContext(
+        changed_files=[parse_patch("app/service.py", "@@ -1 +1,1 @@\n a\n")],
+        history="app/service.py\n- Changed in abc1234: fix null check",
+    )
+    rendered = context.render()
+    assert "## History Context" in rendered
+    assert "Changed in abc1234: fix null check" in rendered
+
+
+async def test_repo_context_skips_history_when_empty():
+    context = RepoContext(changed_files=[])
+    assert "History Context" not in context.render()
 
 
 def _make_repo(tmp_path):

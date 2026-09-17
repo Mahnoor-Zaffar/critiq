@@ -5,6 +5,7 @@ from types import SimpleNamespace
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from critiq.ai.history import collect_history
 from critiq.ai.providers.base import LLMProvider
 from critiq.ai.providers.openrouter import OpenRouterProvider
 from critiq.analysis.diff import FileDiff, parse_patch
@@ -53,6 +54,8 @@ async def review_pull_request(
     policy = policy or ReviewPolicy.defaults()
     provider = provider or OpenRouterProvider(model=settings.llm_model_cheap)
     calibrator = await _build_calibrator(session, repo)
+    base_sha = pr.get("base", {}).get("sha", "")
+    history = await collect_history(client, session, repo, base_sha, diffs)
     result = await run_review(
         diffs,
         fetcher,
@@ -60,6 +63,7 @@ async def review_pull_request(
         policy=policy,
         repo_index=repo_index,
         calibrator=calibrator,
+        history=history,
     )
 
     if policy.fix_enabled and result.findings:

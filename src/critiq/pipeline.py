@@ -24,12 +24,17 @@ async def run_review(
     policy_yaml: str = "",
     repo_index=None,
     calibrator: Callable[[float, str], float] | None = None,
+    history: str = "",
 ) -> ReviewResult:
     """Run the full review pipeline for a set of changed files."""
     policy = policy or ReviewPolicy.defaults()
     context_builder = ContextBuilder()
     context: RepoContext = await context_builder.build(
-        changed_files=diffs, fetch=fetch, policy_yaml=policy_yaml, repo_index=repo_index
+        changed_files=diffs,
+        fetch=fetch,
+        policy_yaml=policy_yaml,
+        repo_index=repo_index,
+        history=history,
     )
 
     reviewers = build_reviewers(provider, policy)
@@ -48,5 +53,6 @@ async def run_review(
         policy=policy,
         model=settings.llm_model_strong,
         calibrator=calibrator,
+        history=history,
     )
     return await synthesizer.synthesize(findings, diffs)

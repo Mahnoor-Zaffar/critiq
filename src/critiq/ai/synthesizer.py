@@ -50,6 +50,7 @@ class Synthesizer:
         model: str | None = None,
         max_comments: int | None = None,
         calibrator: Callable[[float, str], float] | None = None,
+        history: str = "",
     ) -> None:
         self.provider = provider
         self.synthesis_prompt = synthesis_prompt
@@ -57,6 +58,7 @@ class Synthesizer:
         self.model = model
         self.max_comments = max_comments or policy.max_comments
         self.calibrator = calibrator
+        self.history = history
 
     async def synthesize(
         self,
@@ -86,7 +88,13 @@ class Synthesizer:
         )
 
     async def _narrative(self, findings: list[Finding]) -> tuple[str, str, str]:
-        user = (
+        user = ""
+        if self.history:
+            user = (
+                f"History context (how these files evolved before this PR):\n"
+                f"{self.history}\n\n"
+            )
+        user += (
             "Findings:\n" + "\n".join(_render_finding(f) for f in findings) + "\n\n"
             "Produce the final review."
         )

@@ -18,6 +18,7 @@ class RepoContext:
     modules: dict[str, ModuleInfo] = field(default_factory=dict)
     related_files: dict[str, str] = field(default_factory=dict)  # path -> source
     policy_yaml: str = ""
+    history: str = ""  # bounded history block for the changed files
 
     def render(self) -> str:
         """Render a compact textual context for the LLM."""
@@ -36,6 +37,9 @@ class RepoContext:
             for path, source in self.related_files.items():
                 chunks.append(f"\n### {path}\n```python\n{source[:4000]}\n```")
 
+        if self.history:
+            chunks.append("\n## History Context\n" + self.history)
+
         return "\n".join(chunks)
 
 
@@ -50,8 +54,11 @@ class ContextBuilder:
         policy_yaml: str = "",
         related_limit: int = 8,
         repo_index=None,
+        history: str = "",
     ) -> RepoContext:
-        context = RepoContext(changed_files=changed_files, policy_yaml=policy_yaml)
+        context = RepoContext(
+            changed_files=changed_files, policy_yaml=policy_yaml, history=history
+        )
         graph = ImportGraph()
 
         for fd in changed_files:

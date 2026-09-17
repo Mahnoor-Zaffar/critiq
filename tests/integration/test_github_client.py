@@ -16,6 +16,28 @@ def client():
 
 @respx.mock
 @pytest.mark.asyncio
+async def test_get_recent_commits_queries_base_ref(client):
+    respx.get(f"{_API}/repos/o/r/commits").mock(
+        return_value=httpx.Response(
+            200,
+            json=[
+                {
+                    "sha": "abc1234567",
+                    "commit": {"message": "fix null check\n\nDetails here."},
+                },
+                {"sha": "def9012", "commit": {"message": "add retry"}},
+            ],
+        )
+    )
+    commits = await client.get_recent_commits("o/r", "mergebase", "app/x.py")
+    assert commits == [
+        {"sha": "abc1234567", "message": "fix null check"},
+        {"sha": "def9012", "message": "add retry"},
+    ]
+
+
+@respx.mock
+@pytest.mark.asyncio
 async def test_get_pull_request(client):
     respx.get(f"{_API}/repos/o/r/pulls/1").mock(
         return_value=httpx.Response(200, json={"number": 1, "title": "t"})

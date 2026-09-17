@@ -27,7 +27,7 @@ class FakeGitHubClient:
     """In-memory GitHub client that records posted reviews."""
 
     def __init__(self, files=None, contents=None):
-        self.pr = {"head": {"sha": "abc123"}}
+        self.pr = {"head": {"sha": "abc123"}, "base": {"sha": "base123"}}
         self.files = files or [
             ChangedFile(
                 filename="app/handler.py",
@@ -48,6 +48,9 @@ class FakeGitHubClient:
 
     async def get_file_content(self, repo, path, ref):
         return self.contents.get(path)
+
+    async def get_recent_commits(self, repo, sha, path, per_page=3):
+        return [{"sha": "abc1234567", "message": "fix null check"}]
 
     async def create_review(self, repo, number, body, comments, event="COMMENT"):
         self.created_reviews.append(

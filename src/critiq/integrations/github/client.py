@@ -78,6 +78,25 @@ class GitHubClient:
             return data.get("sha")
         return None
 
+    async def get_recent_commits(
+        self, repo: str, sha: str, path: str, per_page: int = 3
+    ) -> list[dict]:
+        """Commits that touched ``path``, reachable from ``sha`` (base ref)."""
+        resp = await self._request(
+            "GET",
+            f"/repos/{repo}/commits",
+            params={"sha": sha, "path": path, "per_page": per_page},
+        )
+        return [
+            {
+                "sha": commit.get("sha", ""),
+                "message": (commit.get("commit") or {})
+                .get("message", "")
+                .splitlines()[0],
+            }
+            for commit in resp.json()
+        ]
+
     async def get_blob(self, repo: str, sha: str) -> str:
         resp = await self._request(
             "GET", f"/repos/{repo}/git/blobs/{sha}",
