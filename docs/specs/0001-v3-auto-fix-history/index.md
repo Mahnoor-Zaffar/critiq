@@ -19,8 +19,8 @@ new database, no new queue.
   single file patch, posts it as a suggestion, reconciles applied or rejected
   state, and offers an org gated push mode.
 - `0001-history.md`: historical awareness. Collects recent commits and prior
-  findings per changed file and injects a bounded history block into the
-  reviewer prompts.
+  findings per changed file, then injects a bounded history block rendered per
+  file for each reviewer and in full for the synthesizer.
 
 ## Cross child contract
 
@@ -29,6 +29,9 @@ new database, no new queue.
   context builder before the reviewers run. Neither feature blocks the other.
 - The review posting path gains the ability to carry a GitHub suggestion block
   on an inline comment. Only auto fix uses it.
+- History reaches a prompt only through its own two renders (per file for a
+  reviewer, full block for the synthesizer). The shared context carries no
+  history, so neither feature's context can leak into the other's prompts.
 - Auto fix is configured by a new `fix` block in `.critiq.yml`. History is
   always on and best effort, with no config.
 - Neither feature posts anything outside a normal review. A repo that never
@@ -50,6 +53,9 @@ off by default.
 - As a PR author, I want the reviewer to know when my change touches code that
   changed through earlier PRs or was flagged before, so the feedback carries
   that context.
+- As a PR author, I want the reviewer to distinguish "nothing was ever flagged
+  here" from "Critiq could not check", so silence reassures me for the right
+  reason.
 
 **Acceptance criteria** (the contract):
 
@@ -88,15 +94,34 @@ off by default.
 - **AC-6**: Auto fix is disabled by default. Adding the `fix` block or calling
   the org settings endpoints never alters reviews for a repo that has not opted
   in.
-- **AC-7**: For every changed file, the review context includes up to 3 recent
-  commits that touched that file before the PR (queried against the base ref,
-  so the PR's own commits are excluded) and up to 5 earlier Critiq findings on
-  that file, aggregated across at most 10 explored files into a total of at
-  most 1200 tokens of injected history.
-- **AC-8**: History collection is best effort. A GitHub commits API failure or
-  an empty prior record set produces no history block and never fails or
-  degrades the review. Per file call and overall collection are bounded: 2
-  seconds per call, 5 seconds in aggregate.
+- **AC-7**: For every changed file, history collection reads up to 3 recent
+  commits that touched that file before the PR (queried against the base SHA of
+  the PR, so the PR's own commits are excluded) and up to 5 earlier Critiq
+  findings on that file, across at most 10 explored files. The synthesizer
+  prompt carries the collected history as one block capped at 1200 tokens. The
+  shared review context carries no history, and per file reviewer history is
+  governed by **AC-9**.
+- **AC-8**: History collection is best effort. A GitHub commits API failure, a
+  database failure, or an empty prior record set never fails or degrades the
+  review; the affected file simply carries no history. Collection is bounded:
+  the GitHub leg by a 5 second aggregate deadline across all files, with the 2
+  second per call timeout acting only as a secondary guard, and the database leg
+  by a 1 second timeout per query.
+- **AC-9**: Each reviewer prompt carries history for the one file that reviewer
+  is judging, rendered at the call site from the raw collected block and capped
+  at 400 tokens, which sits above the arithmetic worst case for a single file so
+  the reviewer render does not trim. A file with no record, a file whose lookup
+  was unavailable, and a file beyond the exploration cap each render a distinct
+  line, and only a confirmed empty record renders a "no recorded history"
+  statement. The synthesizer prompt carries the full block, capped at 1200
+  tokens. For every path, the lines the synthesizer block carries for that path
+  are a superset of the lines the reviewer render carries for the same path.
+- **AC-10**: A history line is never emitted without the file header it belongs
+  to, and every explored file keeps at least one detail line. When the
+  synthesizer block must be trimmed, commit lines are removed before prior
+  finding lines, and whole files are dropped only once no file can lose a line
+  without losing its floor. History collection runs its database leg with at
+  most one task using the session at a time.
 
 ## Decision
 
@@ -112,9 +137,14 @@ admin endpoint guarded by an operator token. Detailed design:
 
 **Historical awareness** is on demand only. Each review asks GitHub for the last
 3 commits touching each changed file, reads the last 5 Critiq findings on that
-file from Postgres, and injects a block capped at 1200 tokens into the reviewer
-prompts. No new table, no cache, no new endpoint. If GitHub is slow or errors,
-history is skipped. Detailed design: `0001-history.md`.
+file from Postgres, bounds each item's length at collection, and renders the
+result at the call site. Each reviewer receives only the file it is judging,
+capped at 400 tokens; the synthesizer receives the whole block, capped at 1200.
+A file with no record, a file Critiq could not check, and a file beyond the
+exploration cap render distinct lines, so the model is never told a file is
+clean when it was simply unchecked. No new table, no cache, no new endpoint. If
+GitHub is slow or errors, history is skipped. Detailed design:
+`0001-history.md`.
 
 **Implementation skills**: `python-async-patterns` (`~/.config/opencode/skills/python-async-patterns/`) · `fastapi-async` (`~/.config/opencode/skills/fastapi-async/`)
 
@@ -134,6 +164,13 @@ and push mode, then land history, which is cheaper and independent.
 8. History collector: base ref commits API with a 2 second per call timeout and prior findings query per changed file, up to 10 files, satisfies **AC-7**
 9. History aggregator with a total 1200 token budget and injection into reviewer and synthesizer prompts, satisfies **AC-7**
 10. History failure handling, aggregate deadline, and tests, satisfies **AC-8**
+11. Collect history into a per path structure with a per path status, bound each
+    item's length at collection, and scope each reviewer prompt to the file it
+    judges, with the synthesizer keeping the full block, satisfies **AC-7**,
+    **AC-9**
+12. Attribution preserving budget trim with a per file floor, a serial database
+    leg, prompt wording that admits the history, and tests for all of it,
+    satisfies **AC-8**, **AC-10**
 
 ## Consequences
 
