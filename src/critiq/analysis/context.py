@@ -2,10 +2,14 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 from critiq.analysis.ast import ModuleInfo, PythonParser
 from critiq.analysis.diff import FileDiff
 from critiq.analysis.graph import ImportGraph
+
+if TYPE_CHECKING:
+    from critiq.ai.history import HistoryBlock
 
 FileFetcher = Callable[[str], Awaitable[str | None]]
 
@@ -18,7 +22,9 @@ class RepoContext:
     modules: dict[str, ModuleInfo] = field(default_factory=dict)
     related_files: dict[str, str] = field(default_factory=dict)  # path -> source
     policy_yaml: str = ""
-    history: str = ""  # bounded history block for the changed files
+    # The raw history block travels here but is never rendered by render():
+    # each prompt renders its own slice, so history is not sent sixty times.
+    history: HistoryBlock | None = None
 
     def render(self) -> str:
         """Render a compact textual context for the LLM."""
@@ -37,9 +43,6 @@ class RepoContext:
             for path, source in self.related_files.items():
                 chunks.append(f"\n### {path}\n```python\n{source[:4000]}\n```")
 
-        if self.history:
-            chunks.append("\n## History Context\n" + self.history)
-
         return "\n".join(chunks)
 
 
@@ -54,7 +57,7 @@ class ContextBuilder:
         policy_yaml: str = "",
         related_limit: int = 8,
         repo_index=None,
-        history: str = "",
+        history: HistoryBlock | None = None,
     ) -> RepoContext:
         context = RepoContext(
             changed_files=changed_files, policy_yaml=policy_yaml, history=history

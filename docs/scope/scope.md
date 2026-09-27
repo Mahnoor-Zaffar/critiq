@@ -36,10 +36,10 @@ criteria AC-1 through AC-10 in the spec.
   - [x] Workspace clone, test runner, and suggestion posting: clone, targeted tests, suggestion as the finding's comment (AC-2, AC-3)
   - [x] Lifecycle reconcile and push mode: applied, rejected, regenerate, and closed paths; org settings endpoints; Contents API push with a live ref guard and fork and protection fallbacks (AC-4, AC-5, AC-6)
   - [x] History: base ref commits API and prior findings collector, bounded 1200 token injection into reviewer and synthesizer prompts, failure handling and aggregate deadline (AC-7, AC-8)
-  - [ ] History collection rework: bound commit subjects and prior finding titles at collection, record a per path status, select the explored set by added line count, return a per path block (AC-7, AC-9)
-  - [ ] History prompt scoping: thread the raw block, stop the shared context carrying history, one render function at the call site, each reviewer scoped to its own file at 400 tokens, synthesizer full at 1200 (AC-7, AC-9)
-  - [ ] History budgets and bounds: reviewer ceiling that never trims, synthesizer fit by signal class with a one detail floor per file, serial database leg with a 1 second per query timeout (AC-7, AC-8, AC-10)
-  - [ ] History tells the model and covers itself: a history line in each of the six reviewer prompts, `synthesize.txt` rule 1 relaxed to admit recorded history, the four tests that encode the old shared context updated, scenario tests added (AC-8, AC-9, AC-10)
+  - [x] History collection rework: bound commit subjects and prior finding titles at collection, record a per path status, select the explored set by added line count, return a per path block (AC-7, AC-9)
+  - [x] History prompt scoping: thread the raw block, stop the shared context carrying history, one render function at the call site, each reviewer scoped to its own file at 400 tokens, synthesizer full at 1200 (AC-7, AC-9)
+  - [x] History budgets and bounds: reviewer ceiling that never trims, synthesizer fit by signal class with a one detail floor per file, serial database leg with a 1 second per query timeout (AC-7, AC-8, AC-10)
+  - [x] History tells the model and covers itself: a history line in each of the six reviewer prompts, `synthesize.txt` rule 1 relaxed to admit recorded history, the four tests that encode the old shared context updated, scenario tests added (AC-8, AC-9, AC-10)
 - [ ] Verify it: /check verify v3 auto fix and history
 - [ ] Test it: /test v3 auto fix and history
 - code in `src/critiq/ai/history.py`, `src/critiq/analysis/context.py`,

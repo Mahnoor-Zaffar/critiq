@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import replace
 
+from critiq.ai.history import HistoryBlock, render_history
 from critiq.ai.providers.base import LLMProvider
 from critiq.ai.schemas import SYNTHESIS_SCHEMA
 from critiq.analysis.diff import FileDiff
@@ -50,7 +51,7 @@ class Synthesizer:
         model: str | None = None,
         max_comments: int | None = None,
         calibrator: Callable[[float, str], float] | None = None,
-        history: str = "",
+        history: HistoryBlock | None = None,
     ) -> None:
         self.provider = provider
         self.synthesis_prompt = synthesis_prompt
@@ -89,10 +90,11 @@ class Synthesizer:
 
     async def _narrative(self, findings: list[Finding]) -> tuple[str, str, str]:
         user = ""
-        if self.history:
+        block = render_history(self.history)
+        if block:
             user = (
-                f"History context (how these files evolved before this PR):\n"
-                f"{self.history}\n\n"
+                "Recorded history (how these files evolved before this PR):\n"
+                f"{block}\n\n"
             )
         user += (
             "Findings:\n" + "\n".join(_render_finding(f) for f in findings) + "\n\n"

@@ -8,7 +8,8 @@ Synthesize the findings into:
 - A summary that prioritizes the most impactful issues (P0/P1/P2) with impact.
 
 Rules:
-- Only reference the provided findings; do not invent new issues.
+- Only reference the provided findings and the recorded history; do not invent new
+  issues.
 - Do not duplicate findings.
 - Keep the summary tight and actionable, like a Staff Engineer talking to the team.
 - Return JSON matching the synthesis schema.

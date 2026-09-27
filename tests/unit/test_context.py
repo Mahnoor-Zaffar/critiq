@@ -1,21 +1,43 @@
+from critiq.ai.history import HistoryBlock, HistoryStatus, PathHistory, render_history
 from critiq.analysis.context import ContextBuilder, RepoContext
 from critiq.analysis.diff import parse_patch
 from critiq.repository.store import build_index
 
 
-async def test_repo_context_renders_history_block():
+def _block(path: str = "app/service.py") -> HistoryBlock:
+    return HistoryBlock(
+        entries={
+            path: PathHistory(
+                path,
+                HistoryStatus.OK,
+                ("- Changed in abc1234: fix null check",),
+            )
+        },
+        changed_file_count=1,
+    )
+
+
+def test_repo_context_carries_the_block_without_rendering_it():
+    """The shared context is what all sixty reviewer calls see, so it carries
+    no history; each prompt renders its own slice from the raw block instead."""
+    block = _block()
     context = RepoContext(
         changed_files=[parse_patch("app/service.py", "@@ -1 +1,1 @@\n a\n")],
-        history="app/service.py\n- Changed in abc1234: fix null check",
+        history=block,
     )
+
     rendered = context.render()
-    assert "## History Context" in rendered
-    assert "Changed in abc1234: fix null check" in rendered
+
+    assert context.history is block
+    assert "History Context" not in rendered
+    assert "Changed in abc1234" not in rendered
+    assert "Changed in abc1234" in render_history(context.history, {"app/service.py"})
 
 
-async def test_repo_context_skips_history_when_empty():
+def test_repo_context_without_history_renders_no_history_section():
     context = RepoContext(changed_files=[])
     assert "History Context" not in context.render()
+    assert render_history(context.history) == ""
 
 
 def _make_repo(tmp_path):

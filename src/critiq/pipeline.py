@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
+from typing import TYPE_CHECKING
 
 from critiq.ai.providers.base import LLMProvider
 from critiq.ai.reviewers import build_reviewers, read_synthesis_prompt
@@ -13,6 +14,9 @@ from critiq.core.config import settings
 from critiq.core.findings import Finding, ReviewResult
 from critiq.core.policy import ReviewPolicy
 
+if TYPE_CHECKING:
+    from critiq.ai.history import HistoryBlock
+
 FileFetcher = Callable[[str], Awaitable[str | None]]
 
 
@@ -24,7 +28,7 @@ async def run_review(
     policy_yaml: str = "",
     repo_index=None,
     calibrator: Callable[[float, str], float] | None = None,
-    history: str = "",
+    history: HistoryBlock | None = None,
 ) -> ReviewResult:
     """Run the full review pipeline for a set of changed files."""
     policy = policy or ReviewPolicy.defaults()
