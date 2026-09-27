@@ -73,6 +73,7 @@ async def review_pull_request(
         result.comments = fix_result.comments
         result.patches = fix_result.patches
 
+    result.head_sha = head_ref
     return result
 
 

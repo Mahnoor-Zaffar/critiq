@@ -68,7 +68,10 @@ async def _apply_push_mode(
         return PushState()
 
     pr = await client.get_pull_request(repo, number)
-    tested_head_sha = pr["head"]["sha"]
+    tested_head_sha = result.head_sha
+    if not tested_head_sha:
+        logger.info("push mode skipped for %s: no tested head recorded", repo)
+        return PushState()
     commits, _remaining = await push_if_allowed(
         client, repo, pr, result.patches, tested_head_sha
     )

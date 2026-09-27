@@ -146,7 +146,7 @@ class AutoFixRunner:
                 line_end=patch.line_end,
                 version=1,
                 status="offered",
-                test_status="passed",
+                test_status=test_status,
                 suggested_replacement=patch.replacement_text,
             ),
         )

@@ -59,6 +59,12 @@ review:
     cheap: openrouter/auto   # classification, context selection
     strong: openrouter/auto  # architecture/correctness, synthesis
 
+  fix:                       # auto fix (V3, off unless enabled)
+    enabled: false
+    apply: suggest           # suggest = offer a GitHub suggestion; push = auto commit when approved
+    max_patches: 2
+    categories: [correctness, security]   # empty means the default set
+
   languages:
     - python                 # V1 supported languages
 ```
@@ -76,6 +82,10 @@ review:
 | `rules` | `[]` | Custom engineering rules (see §2b) |
 | `style.*` | `false` | Style/naming checks (kept off in V1) |
 | `model_routing` | defaults | Cheap vs strong model mapping |
+| `fix.enabled` | `false` | Turn auto fix on (V3) |
+| `fix.apply` | `suggest` | `suggest` posts a suggestion; `push` also commits when the org approves |
+| `fix.max_patches` | `2` | Cap on patches offered per review |
+| `fix.categories` | default set | Finding categories eligible for auto fix; empty means the default set |
 | `languages` | `[python]` | Supported languages to review |
 
 ### 2a. Team Profiles (`CRITIQ_PROFILES_DIR`)

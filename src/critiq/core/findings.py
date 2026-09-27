@@ -67,3 +67,4 @@ class ReviewResult:
     comments: list[ReviewComment] = field(default_factory=list)
     findings: list[Finding] = field(default_factory=list)
     patches: list = field(default_factory=list)
+    head_sha: str | None = None

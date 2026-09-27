@@ -7,7 +7,7 @@
 
 | Feature | Status | Spec |
 |---|---|---|
-| V3 auto fix and history | in-progress | [0001](../specs/0001-v3-auto-fix-history/index.md) |
+| V3 auto fix and history | verified | [0001](../specs/0001-v3-auto-fix-history/index.md) |
 | Prompt context scoping (from spec 0001) | planned | — |
 | Evaluation harness history seam (from spec 0001) | planned | — |
 
@@ -40,8 +40,12 @@ criteria AC-1 through AC-10 in the spec.
   - [x] History prompt scoping: thread the raw block, stop the shared context carrying history, one render function at the call site, each reviewer scoped to its own file at 400 tokens, synthesizer full at 1200 (AC-7, AC-9)
   - [x] History budgets and bounds: reviewer ceiling that never trims, synthesizer fit by signal class with a one detail floor per file, serial database leg with a 1 second per query timeout (AC-7, AC-8, AC-10)
   - [x] History tells the model and covers itself: a history line in each of the six reviewer prompts, `synthesize.txt` rule 1 relaxed to admit recorded history, the four tests that encode the old shared context updated, scenario tests added (AC-8, AC-9, AC-10)
-- [ ] Verify it: /check verify v3 auto fix and history
-- [ ] Test it: /test v3 auto fix and history
+- [x] Verify it: /check verify v3 auto fix and history
+  - Ten of ten acceptance criteria driven against the running app with a real HTTP fake, a real git clone, a real pytest subprocess and real Postgres
+  - Two defects found and fixed: `AutoFixRunner._suggestion` stored untested patches as `passed`, and `_apply_push_mode` compared the live ref against itself instead of the tested head
+  - Fixes: store the real verifier verdict, carry the head under test on `ReviewResult`, and refuse to push when it is unknown or has moved
+- [x] Test it: /test v3 auto fix and history
+  - Full suite 215 passed; the two defects are locked in by regression tests that fail without their fix
 - code in `src/critiq/ai/history.py`, `src/critiq/analysis/context.py`,
   `src/critiq/pipeline.py`, `src/critiq/ai/synthesizer.py`,
   `src/critiq/apps/worker/review_service.py`, `src/critiq/ai/prompts/`,

@@ -4,7 +4,7 @@ import pytest
 from critiq.ai.autofix import GeneratedPatch
 from critiq.analysis.diff import parse_patch
 from critiq.apps.worker.auto_fix import AutoFixRunner
-from critiq.apps.worker.test_runner import FAILED, PASSED, PatchStatus
+from critiq.apps.worker.test_runner import FAILED, PASSED, UNVERIFIED, PatchStatus
 from critiq.core.findings import Finding, FindingSource, ReviewComment
 from critiq.core.policy import Category, ReviewPolicy, Severity
 
@@ -94,6 +94,32 @@ async def test_passed_replaces_comment_with_suggestion():
     assert result.comments[0] is not comment
     assert "Test verified" in result.comments[0].body
     assert "```suggestion" in result.comments[0].body
+    assert result.patches[0].test_status == PASSED
+
+
+@pytest.mark.asyncio
+async def test_unverified_patch_record_keeps_unverified_status():
+    """AC-2: an untested patch is stored as unverified, never as passed."""
+    finding = _finding()
+    comment = _comment(finding)
+    diff = parse_patch("handler.py", PATCH)
+    gen_patch = GeneratedPatch(
+        finding=finding, file_diff=diff, line_start=4, line_end=4,
+        replacement_text="    subprocess.run([x], shell=False)"
+    )
+    runner = AutoFixRunner(
+        policy=ReviewPolicy({"review": {"fix": {"enabled": True}}}),
+        generator=_FakeGenerator(patch=gen_patch),
+        verifier=_FakeVerifier(PatchStatus(UNVERIFIED, "no matching test file")),
+    )
+
+    async def fake_fetch(path):
+        return SOURCE
+
+    result = await runner.run([diff], [finding], [comment], fake_fetch)
+    assert result.patches[0].status == "offered"
+    assert result.patches[0].test_status == UNVERIFIED
+    assert "Not test verified" in result.comments[0].body
 
 
 @pytest.mark.asyncio
