@@ -5,7 +5,10 @@ from pathlib import Path
 
 import yaml
 
+from critiq.ai.history import HistoryBlock, HistoryStatus, PathHistory
 from critiq.core.policy import Category, Severity
+
+ALLOWED_STATUS_OVERRIDES = (HistoryStatus.UNAVAILABLE, HistoryStatus.NOT_EXPLORED)
 
 
 @dataclass(slots=True)
@@ -32,10 +35,67 @@ class EvalFinding:
 
 
 @dataclass(slots=True)
+class EvalHistory:
+    """Recorded history for one changed file, authored in the dataset (AC-3).
+
+    The status is derived from the lines rather than authored, so a case cannot
+    declare a file clean while listing lines for it. Only the two failure
+    wordings need an override, because those say something the lines cannot.
+    """
+
+    commits: tuple[str, ...] = ()
+    findings: tuple[str, ...] = ()
+    status_override: HistoryStatus | None = None
+
+    @property
+    def status(self) -> HistoryStatus:
+        if self.status_override is not None:
+            return self.status_override
+        if self.commits or self.findings:
+            return HistoryStatus.OK
+        return HistoryStatus.EMPTY
+
+    @property
+    def detail_line_count(self) -> int:
+        return len(self.commits) + len(self.findings)
+
+    def to_path_history(self, path: str) -> PathHistory:
+        return PathHistory(
+            path=path,
+            status=self.status,
+            commit_lines=self.commits,
+            finding_lines=self.findings,
+        )
+
+    @classmethod
+    def from_dict(cls, data: dict) -> EvalHistory:
+        raw = data.get("status")
+        override: HistoryStatus | None = None
+        if raw is not None:
+            allowed = {s.value for s in ALLOWED_STATUS_OVERRIDES}
+            if raw not in allowed:
+                raise ValueError(
+                    f"history status must be one of {', '.join(sorted(allowed))}, got {raw!r}. "
+                    "ok and empty are derived from the lines, not authored."
+                )
+            override = HistoryStatus(raw)
+        return cls(
+            commits=tuple(str(line) for line in data.get("commits", ())),
+            findings=tuple(str(line) for line in data.get("findings", ())),
+            status_override=override,
+        )
+
+
+@dataclass(slots=True)
 class EvalFile:
     path: str
     patch: str
     source: str
+    history: EvalHistory | None = None
+
+    @property
+    def history_lines_authored(self) -> int:
+        return self.history.detail_line_count if self.history else 0
 
 
 @dataclass(slots=True)
@@ -64,6 +124,7 @@ class EvalCase:
                 path=f["path"],
                 patch=f.get("patch", ""),
                 source=f.get("source", ""),
+                history=EvalHistory.from_dict(f["history"]) if f.get("history") else None,
             )
             for f in data.get("files", [])
         ]
@@ -76,6 +137,21 @@ class EvalCase:
             files=files,
             expected=expected,
         )
+
+
+def history_for_case(case: EvalCase) -> HistoryBlock:
+    """Fold a case's changed files into one block, one entry per file (AC-1).
+
+    A file with no authored block becomes a confirmed empty record rather than an
+    absent one, so the prompt tells the model the file was checked and found
+    clean instead of leaving it unclear.
+    """
+    return HistoryBlock(
+        entries={
+            f.path: (f.history or EvalHistory()).to_path_history(f.path) for f in case.files
+        },
+        changed_file_count=len(case.files),
+    )
 
 
 def load_dataset(path: str | Path) -> list[EvalCase]:

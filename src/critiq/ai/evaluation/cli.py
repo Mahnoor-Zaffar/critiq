@@ -4,7 +4,13 @@ import argparse
 import asyncio
 
 from critiq.ai.evaluation.dataset import load_dataset
-from critiq.ai.evaluation.runner import render_report, run_evaluation
+from critiq.ai.evaluation.runner import (
+    Arm,
+    compare_arms,
+    render_comparison,
+    render_report,
+    run_evaluation,
+)
 from critiq.ai.providers.mock import MockProvider
 from critiq.ai.providers.openrouter import OpenRouterProvider
 from critiq.core.config import settings
@@ -15,6 +21,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("dataset", help="Path to a dataset dir or YAML file")
     parser.add_argument(
         "--provider", choices=["mock", "openrouter"], default="mock"
+    )
+    parser.add_argument(
+        "--arm",
+        choices=["none", "case", "both"],
+        default="both",
+        help="Score without history, with history, or both (default: both)",
     )
     parser.add_argument("--model", default=None, help="Model for the provider")
     parser.add_argument("--output", default=None, help="Write report to a file")
@@ -29,8 +41,14 @@ def main() -> None:
         return
 
     provider = _make_provider(args.provider, args.model)
-    report = asyncio.run(run_evaluation(cases, provider=provider))
-    text = render_report(report)
+
+    if args.arm == "both":
+        comparison = asyncio.run(compare_arms(cases, provider=provider))
+        text = render_comparison(comparison, args.provider)
+    else:
+        arm = Arm(args.arm)
+        single = asyncio.run(run_evaluation(cases, provider=provider, arm=arm))
+        text = f"Provider: **{args.provider}**, {arm.value} arm only.\n\n{render_report(single)}"
 
     if args.output:
         with open(args.output, "w", encoding="utf-8") as fh:

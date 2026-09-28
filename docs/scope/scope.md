@@ -9,7 +9,7 @@
 |---|---|---|
 | V3 auto fix and history | verified | [0001](../specs/0001-v3-auto-fix-history/index.md) |
 | Prompt context scoping (from spec 0001) | planned | — |
-| Evaluation harness history seam (from spec 0001) | in-progress | [0002](../specs/0002-eval-harness-history-seam.md) |
+| Evaluation harness history seam (from spec 0002) | in-progress | [0002](../specs/0002-eval-harness-history-seam.md) |
 
 ## Current cycle
 
@@ -66,12 +66,15 @@ through AC-12 in the spec.
 
 - [x] Design it (spec)
   - [0002](../specs/0002-eval-harness-history-seam.md): A history seam for the evaluation harness
-- [ ] Build it: /develop evaluation harness history seam
-  - [ ] Shared history surface: promote the token estimator, add `EvalHistory` to each changed file in the dataset with status derived from content, and fold a case into one `HistoryBlock` (AC-1, AC-2, AC-3, AC-8)
-  - [ ] Injection and observation: give `run_evaluation` an arm argument, pass the block to the pipeline, and add a recording provider that attributes every prompt to a file and records authored beside rendered history lines (AC-4, AC-5, AC-6, AC-7)
-  - [ ] Comparison and report: add `compare_arms` and the metric deltas, then render the delta table, the per case table, and the prompt observation section with the provider mode and non repeatability note (AC-9, AC-10, AC-12)
-  - [ ] Command line: run both arms by default with an arm flag to narrow, name the arm and case in a provider failure, and cover failure, trimming, attribution, and old datasets (AC-11)
+- [x] Build it: /develop evaluation harness history seam
+  - [x] Shared history surface: promoted the token estimator to `critiq/ai/tokens.py`, added `EvalHistory` to each changed file in the dataset with status derived from content, and folded a case into one `HistoryBlock` (AC-1, AC-2, AC-3, AC-8)
+  - [x] Injection and observation: `run_evaluation` takes an arm and passes the block to the pipeline, and `RecordingProvider` attributes every prompt to a file and records the history section flag beside authored and rendered lines (AC-4, AC-5, AC-6, AC-7)
+  - [x] Comparison and report: `compare_arms` reuses `EvaluationReport` and differences the metrics, and the report renders the rate and count deltas, the per case table, and the prompt observation section with the provider mode and non repeatability note (AC-9, AC-10, AC-12)
+  - [x] Command line: both arms run by default with `--arm` to narrow, a provider failure names the arm and the case, and tests cover failure, trimming, attribution, and old datasets (AC-11)
 - [ ] Verify it: /check verify evaluation harness history seam
+- code in `src/critiq/ai/tokens.py`, `src/critiq/ai/providers/recording.py`,
+  `src/critiq/ai/evaluation/dataset.py`, `src/critiq/ai/evaluation/runner.py`,
+  `src/critiq/ai/evaluation/cli.py`,
 
 ## Next up
 

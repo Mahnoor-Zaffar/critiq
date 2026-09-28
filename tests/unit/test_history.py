@@ -14,12 +14,12 @@ from critiq.ai.history import (
     HistoryStatus,
     PathHistory,
     _fit,
-    _token_cost,
     _truncate,
     collect_history,
     render_history,
 )
 from critiq.ai.reviewers import build_reviewers, read_synthesis_prompt
+from critiq.ai.tokens import estimate_tokens
 from critiq.analysis.diff import DiffHunk, FileDiff
 from critiq.core.policy import ReviewPolicy
 from critiq.integrations.github.client import GitHubClientError
@@ -458,7 +458,7 @@ def test_a_worst_case_file_never_trims_in_the_reviewer_render():
     rendered = render_history(block, {entry.path}, budget=REVIEWER_TOKEN_BUDGET)
 
     assert rendered.splitlines()[1:] == list(entry.detail_lines)
-    assert _token_cost(rendered.splitlines()) <= REVIEWER_TOKEN_BUDGET
+    assert estimate_tokens(rendered) <= REVIEWER_TOKEN_BUDGET
 
 
 def test_the_reviewer_render_carries_only_the_file_it_is_judging():
@@ -495,7 +495,7 @@ def test_the_synthesizer_render_stays_under_budget():
 
     rendered = render_history(block)
 
-    assert _token_cost(rendered.splitlines()) <= SYNTHESIS_TOKEN_BUDGET
+    assert estimate_tokens(rendered) <= SYNTHESIS_TOKEN_BUDGET
     assert rendered.splitlines()[0] == (
         f"Recorded history for {MAX_FILES} of {MAX_FILES} changed files."
     )
@@ -553,9 +553,11 @@ def test_fit_keeps_the_most_valuable_lines_when_over_budget():
     assert kept
     for entry in kept:
         assert entry.detail_lines, "a kept file must keep a detail line"
-        assert _token_cost(
-            [f"History Context for {e.path}" for e in kept]
-            + [line for e in kept for line in e.detail_lines]
+        assert estimate_tokens(
+            "\n".join(
+                [f"History Context for {e.path}" for e in kept]
+                + [line for e in kept for line in e.detail_lines]
+            )
         ) <= 200
 
 

@@ -9,6 +9,7 @@ from enum import StrEnum
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from critiq.ai.tokens import estimate_tokens
 from critiq.analysis.diff import FileDiff
 from critiq.infrastructure.postgres.models import Finding as DbFinding
 from critiq.infrastructure.postgres.models import PullRequest as DbPullRequest
@@ -255,7 +256,7 @@ def _render_all(block: HistoryBlock, *, budget: int) -> str:
         return ""
     # Reserve the count line up front, then report what actually survived so a
     # trimmed block is visible rather than silently partial.
-    kept = _fit(entries, budget - _token_cost([_count_line(len(entries), block)]))
+    kept = _fit(entries, budget - estimate_tokens(_count_line(len(entries), block)))
     lines = [_count_line(len(kept), block)]
     for entry in kept:
         lines.extend(_section_lines(entry))
@@ -287,7 +288,9 @@ def _fit(entries: list[PathHistory], budget: int) -> list[PathHistory]:
     kept = {entry.path: entry for entry in entries}
 
     def cost() -> int:
-        return _token_cost([line for entry in kept.values() for line in _section_lines(entry)])
+        return estimate_tokens(
+            "\n".join(line for entry in kept.values() for line in _section_lines(entry))
+        )
 
     while kept and cost() > budget:
         if not _evict_detail(kept):
@@ -335,7 +338,3 @@ def _truncate(text: str) -> str:
     if len(text) <= MAX_VALUE_CHARS:
         return text
     return text[: MAX_VALUE_CHARS - 1] + "…"
-
-
-def _token_cost(lines: list[str]) -> int:
-    return len("\n".join(lines)) // 4

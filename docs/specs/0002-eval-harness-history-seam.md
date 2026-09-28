@@ -1,7 +1,7 @@
 # 0002. A history seam for the evaluation harness
 
 **Date**: 2026-09-27
-**Status**: Proposed
+**Status**: In Progress
 
 ## Summary
 
