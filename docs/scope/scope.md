@@ -9,7 +9,7 @@
 |---|---|---|
 | V3 auto fix and history | verified | [0001](../specs/0001-v3-auto-fix-history/index.md) |
 | Prompt context scoping (from spec 0001) | planned | — |
-| Evaluation harness history seam (from spec 0001) | planned | — |
+| Evaluation harness history seam (from spec 0001) | in-progress | [0002](../specs/0002-eval-harness-history-seam.md) |
 
 ## Current cycle
 
@@ -51,6 +51,28 @@ criteria AC-1 through AC-10 in the spec.
   `src/critiq/apps/worker/review_service.py`, `src/critiq/ai/prompts/`,
   `src/critiq/integrations/github/client.py`
 
+### Evaluation harness history seam (from spec 0001) · in-progress
+
+The evaluation harness calls the pipeline with no history argument and its mock
+provider discards the user prompt, so it can neither inject nor observe a
+history block. Without this seam, whether history improves finding quality at
+all stays unmeasured, and the feature's central premise stays untested.
+
+Done when: one command scores a run with and without history, the report shows
+the difference alongside what each prompt actually received, a trimmed block is
+distinguishable from one that never arrived, and a mock run is labelled as
+plumbing proof rather than a quality result. See the acceptance criteria AC-1
+through AC-12 in the spec.
+
+- [x] Design it (spec)
+  - [0002](../specs/0002-eval-harness-history-seam.md): A history seam for the evaluation harness
+- [ ] Build it: /develop evaluation harness history seam
+  - [ ] Shared history surface: promote the token estimator, add `EvalHistory` to each changed file in the dataset with status derived from content, and fold a case into one `HistoryBlock` (AC-1, AC-2, AC-3, AC-8)
+  - [ ] Injection and observation: give `run_evaluation` an arm argument, pass the block to the pipeline, and add a recording provider that attributes every prompt to a file and records authored beside rendered history lines (AC-4, AC-5, AC-6, AC-7)
+  - [ ] Comparison and report: add `compare_arms` and the metric deltas, then render the delta table, the per case table, and the prompt observation section with the provider mode and non repeatability note (AC-9, AC-10, AC-12)
+  - [ ] Command line: run both arms by default with an arm flag to narrow, name the arm and case in a provider failure, and cover failure, trimming, attribution, and old datasets (AC-11)
+- [ ] Verify it: /check verify evaluation harness history seam
+
 ## Next up
 
 ### Prompt context scoping (from spec 0001)
@@ -65,22 +87,22 @@ source relevant to the file it is judging, the synthesizer keeps the full
 context, and injected context tokens fall by a measured amount on a ten file pull
 request. Needs its own spec before it is built.
 
-### Evaluation harness history seam (from spec 0001)
+### Grow the evaluation dataset (from spec 0002)
 
-The evaluation harness calls the pipeline with no history argument and its mock
-provider discards the user prompt, so it can neither inject nor observe a
-history block. Without this seam, whether history improves finding quality at
-all stays unmeasured, and the feature's central premise stays untested.
+`datasets/` holds one case with two expected findings, so any precision or recall
+delta computed from it is noise rather than evidence. Labelled cases are the input
+the quality measurement needs, and they are the thing standing between the history
+feature and an evidence based keep or drop decision.
 
-Done when: the harness accepts a history block and a recording provider captures
-the rendered prompts, so a run can be scored with and without history. Needs its
-own spec before it is built.
+Done when: the dataset holds enough labelled cases that a precision or recall
+delta between two runs means something, and the harness can score it end to end.
+Needs its own spec before it is built.
 
 ## Deferred
 
 - [ ] Measure whether history changes finding quality, once the harness seam
-  above exists. If it does not, reduce or drop the feature rather than optimise
-  it further.
+  above exists and the dataset is large enough. If it does not, reduce or drop
+  the feature rather than optimise it further.
 - [ ] Consider moving history collection off the review critical path, since a
   GitHub hiccup currently adds up to 5 seconds to every review.
 - [ ] `get_recent_commits` builds a fresh `httpx.AsyncClient` per call, so
@@ -88,3 +110,6 @@ own spec before it is built.
 - [ ] Revisit the 6x reviewer multiplier by collapsing the six category passes
   into one history aware pass, if prompt cost ever becomes the binding
   constraint.
+- [ ] Reconcile the status of `docs/specs/0001-v3-auto-fix-history/index.md`,
+  which still reads `In Progress` while this scope records that feature as
+  verified.
